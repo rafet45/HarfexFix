@@ -70,6 +70,12 @@ try:
 except Exception:
     ezdxf = None
 
+# ── svgelements ────────────────────────────────────────────────────────────────
+try:
+    import svgelements
+except Exception:
+    svgelements = None
+
 
 # ── Timer ─────────────────────────────────────────────────────────────────────
 class StageTimer:
@@ -702,6 +708,89 @@ class DXFImporter:
                 np2.append({"points": clean_points(pts, 0.0001), "closed": ic})
             op = np2
         return closed + op
+
+
+# ── SVG Importer ───────────────────────────────────────────────────────────────
+class SVGImporter:
+    """SVG path/shape -> {"points":[(x,y),...], "closed": bool} listesi.
+    svgelements ile parse edilir; transformlar reify ile bakeleşir,
+    eğriler düzleştirilir, px -> mm dönüşümü (96dpi) ve Y-flip uygulanır."""
+
+    PX_TO_MM = 25.4 / 96.0
+
+    @staticmethod
+    def read_paths(path):
+        if not svgelements:
+            raise RuntimeError("svgelements not installed: pip install svgelements")
+        from svgelements import (
+            SVG, Path as SEPath, Shape, Move, Close, Line,
+            CubicBezier, QuadraticBezier, Arc,
+        )
+
+        svg = SVG.parse(path, reify=True)
+        scale = SVGImporter.PX_TO_MM
+        paths = []
+
+        def to_mm(pt):
+            return (pt.x * scale, -pt.y * scale)
+
+        def flatten_curve(seg):
+            length = seg.length()
+            n = max(4, min(64, int(length / 1.5)))
+            return [to_mm(seg.point(i / n)) for i in range(1, n + 1)]
+
+        def add(pts, closed):
+            p = clean_points(pts, 0.0001)
+            if len(p) < 2:
+                return
+            if closed and dist(p[0], p[-1]) > 0.0001:
+                p.append(p[0])
+            paths.append({
+                "points": p,
+                "closed": closed or (len(p) > 2 and dist(p[0], p[-1]) < 0.001)
+            })
+
+        for e in svg.elements():
+            if not isinstance(e, Shape):
+                continue
+            if isinstance(e, SVG):
+                continue
+            vals = getattr(e, "values", {}) or {}
+            if vals.get("display") == "none" or vals.get("visibility") == "hidden":
+                continue
+            try:
+                sub = SEPath(e)
+            except Exception:
+                continue
+            if len(sub) == 0:
+                continue
+
+            current, start = [], None
+            for seg in sub:
+                if isinstance(seg, Move):
+                    if len(current) >= 2:
+                        add(current, closed=False)
+                    start = seg.end
+                    current = [to_mm(start)] if start is not None else []
+                elif isinstance(seg, Close):
+                    if start is not None:
+                        current.append(to_mm(start))
+                    if len(current) >= 2:
+                        add(current, closed=True)
+                    current, start = [], None
+                elif isinstance(seg, Line):
+                    if seg.end is not None:
+                        current.append(to_mm(seg.end))
+                elif isinstance(seg, (CubicBezier, QuadraticBezier, Arc)):
+                    try:
+                        current.extend(flatten_curve(seg))
+                    except Exception:
+                        if seg.end is not None:
+                            current.append(to_mm(seg.end))
+            if len(current) >= 2:
+                add(current, closed=False)
+
+        return DXFImporter.merge(paths)
 
 
 # ── Duvar profil sabitleri ────────────────────────────────────────────────────

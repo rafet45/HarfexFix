@@ -30,7 +30,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from harfex_engine import (
-    MB, DXFImporter, cleanup,
+    MB, DXFImporter, SVGImporter, cleanup,
     _face_fill_pattern, _as_polys, _clean,
     dist, clean_points, signed_area,
     StageTimer, _tic, _toc,
@@ -84,10 +84,14 @@ class HarfexEngine:
     # Yükleme
     # ─────────────────────────────────────────────────────────────────────────
     def load_dxf_file(self, path: str):
-        """Disk'ten DXF yükle."""
-        new_paths = DXFImporter.read_paths(path)
+        """Disk'ten DXF/SVG yükle (uzantıya göre)."""
+        suffix = Path(path).suffix.lower()
+        if suffix == ".svg":
+            new_paths = SVGImporter.read_paths(path)
+        else:
+            new_paths = DXFImporter.read_paths(path)
         if not new_paths:
-            raise RuntimeError("DXF'de görüntülenebilir yol bulunamadı.")
+            raise RuntimeError("Dosyada görüntülenebilir yol bulunamadı.")
         self.paths      = new_paths
         self.has_model  = False
         self.mx = False; self.my = False; self.flip_z = False
@@ -254,24 +258,43 @@ class HarfexEngine:
                     if not pg.is_empty and pg.area > 0.01:
                         rp.append({"poly": pg, "area": abs(pg.area)})
                 except Exception: pass
+            # Sort descending by area: a ring's parent (the ring directly
+            # enclosing it) always has a larger area and therefore a lower
+            # index here, so parent[i] < i always — no cycles possible.
             rp.sort(key=lambda x: x["area"], reverse=True)
-            used = set()
-            for i, r in enumerate(rp):
-                if i in used: continue
-                ou = r["poly"]; holes = []
-                for j, h in enumerate(rp):
-                    if i == j or j in used: continue
-                    try:
-                        if ou.contains(h["poly"].representative_point()):
-                            holes.append(list(h["poly"].exterior.coords))
-                            used.add(j)
-                    except Exception: pass
+            n = len(rp)
+            parent = [-1] * n
+            for i in range(n):
                 try:
-                    poly = Polygon(list(ou.exterior.coords), holes)
+                    pt = rp[i]["poly"].representative_point()
+                except Exception:
+                    continue
+                best_j, best_area = -1, None
+                for j in range(i):
+                    try:
+                        if rp[j]["poly"].contains(pt):
+                            if best_area is None or rp[j]["area"] < best_area:
+                                best_area, best_j = rp[j]["area"], j
+                    except Exception:
+                        pass
+                parent[i] = best_j
+            depth = [0] * n
+            for i in range(n):
+                depth[i] = depth[parent[i]] + 1 if parent[i] != -1 else 0
+            # Even-depth rings are filled outlines; their direct children
+            # (depth+1) are holes. Children of those holes (depth+2) become
+            # their own filled "island" polygons, recursively.
+            for i, r in enumerate(rp):
+                if depth[i] % 2 != 0:
+                    continue
+                holes = [list(rp[j]["poly"].exterior.coords)
+                         for j in range(n) if parent[j] == i]
+                try:
+                    poly = Polygon(list(r["poly"].exterior.coords), holes)
                     if not poly.is_valid: poly = poly.buffer(0)
                     if not poly.is_empty: polys.append(poly)
                 except Exception:
-                    if not ou.is_empty: polys.append(ou)
+                    if not r["poly"].is_empty: polys.append(r["poly"])
 
         if not polys and lines:
             try: polys = list(polygonize(unary_union(lines)))

@@ -16,12 +16,7 @@ echo  HARFEX - Sunucular baslatiliyor...
 echo  BU PENCEREYI KAPATMAYIN!
 echo  -----------------------------------------------
 
-rem ── Worker sayisi: ayni anda birden fazla kullanicinin 3D uretimi paralel
-rem    yurutulebilmesi icin CPU cekirdek sayisi kadar uvicorn worker'i acilir.
-set HARFEX_WORKERS=%NUMBER_OF_PROCESSORS%
-if "%HARFEX_WORKERS%"=="" set HARFEX_WORKERS=4
-
-start "Harfex API" cmd /k "cd /d %~dp0 && python -m uvicorn api.main:app --host 127.0.0.1 --port 8080 --workers %HARFEX_WORKERS%"
+start "Harfex API" cmd /k "cd /d %~dp0 && python -m uvicorn api.main:app --host 127.0.0.1 --port 8080"
 start "Harfex Web" cmd /k "cd /d %~dp0\web_extracted && python -m http.server 3000"
 
 timeout /t 3 /nobreak >nul

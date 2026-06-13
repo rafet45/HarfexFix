@@ -37,6 +37,7 @@ hiddenimports = [
     'manifold3d',
     'mapbox_earcut',
     'ezdxf',
+    'svgelements',
     'numpy',
     'lang',
     'orca_integration',

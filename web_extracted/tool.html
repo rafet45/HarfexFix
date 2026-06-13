@@ -125,6 +125,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 #slbl{font-size:12px;color:var(--teal);}
 #vp-stats{position:absolute;top:8px;right:8px;font-size:10px;color:var(--teal-dim);text-align:right;pointer-events:none;display:none;}
 #vp-info{position:absolute;bottom:8px;left:8px;font-size:10px;color:#666;pointer-events:none;line-height:1.6;}
+#b-preview{position:absolute;top:8px;right:8px;background:rgba(26,26,26,.7);color:#aab;border:1px solid #555;border-radius:5px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;z-index:15;}
+#b-preview:hover{border-color:var(--teal);color:var(--teal);}
+#b-preview.on{background:var(--teal);color:#0a0a0a;border-color:var(--teal);}
 
 /* ── STATUS BAR ── */
 #sb{height:var(--sb-h);background:#1a1a1a;border-top:1px solid #333;display:flex;align-items:center;padding:0 8px;gap:0;font-size:12px;color:#ccc;flex-shrink:0;}
@@ -295,6 +298,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
         <div id="slbl" data-key="spin-lbl">Geometri hesaplanıyor…</div>
       </div>
       <div id="vp-stats"></div>
+      <button id="b-preview" onclick="togglePreview()" data-key="preview-btn">▶ Sunum Modu</button>
       <div id="vp-info" data-key="vp-info">Sol sürükle: döndür  ·  Scroll: zoom  ·  Sağ sürükle: kaydır</div>
     </div>
   </div>
@@ -595,6 +599,12 @@ function _applyUIState(){
   document.getElementById('mir-f').style.transform=S.mirOn?'scaleX(-1)':'scaleX(1)';
 }
 
+// Input değerini oku; boşsa varsayılan kullan, 0 dahil tüm sayısal değerleri koru
+function numv(id, def){
+  const v = document.getElementById(id).value;
+  return v === '' ? def : +v;
+}
+
 // ── File ───────────────────────────────────────────────────────
 function onFile(e){
   const f = e.target.files[0]; if(!f) return;
@@ -617,9 +627,9 @@ async function loadContour(f){
   try{
     const fd = new FormData();
     fd.append('file', f);
-    fd.append('arc_sm',   +document.getElementById('i-arc').value  || 8);
-    fd.append('round_c',  +document.getElementById('i-rc').value   || 1.0);
-    fd.append('simplify', +document.getElementById('i-simp').value || 0.05);
+    fd.append('arc_sm',   numv('i-arc', 8));
+    fd.append('round_c',  numv('i-rc', 1.0));
+    fd.append('simplify', numv('i-simp', 0.05));
     fd.append('mirror_x', S.mirOn ? 1 : 0);
     const r = await fetch(`${API}/api/contour`, {method:'POST', body:fd});
     if(!r.ok) return;
@@ -867,10 +877,10 @@ async function _buildCover(){
     fd.append('round_c',         p.round_c);
     fd.append('simplify',        p.simplify);
     fd.append('mirror_x',        p.mirror_x);
-    fd.append('cover_ct',        document.getElementById('cv-ct').value||2);
-    fd.append('cover_wh',        document.getElementById('cv-wh').value||15);
-    fd.append('cover_clearance', document.getElementById('cv-cl').value||0.05);
-    fd.append('cover_wt',        document.getElementById('cv-wt').value||3);
+    fd.append('cover_ct',        numv('cv-ct', 2));
+    fd.append('cover_wh',        numv('cv-wh', 15));
+    fd.append('cover_clearance', numv('cv-cl', 0.05));
+    fd.append('cover_wt',        numv('cv-wt', 3));
     const r=await fetch(`${API}/api/cover`,{method:'POST',body:fd});
     if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
     const blob=await r.blob();
@@ -1222,24 +1232,24 @@ function params(){
   // face_thickness: S.ft ile senkron tut (i-fp inputu ile)
   S.ft = +document.getElementById('i-fp').value || 3.0;
   return {
-    wall_mm:         +document.getElementById('i-w').value   ||5,
-    height_mm:       +document.getElementById('i-h').value   ||45,
-    arc_sm:          +document.getElementById('i-arc').value ||8,
-    round_c:         +document.getElementById('i-rc').value  ||1,
-    simplify:        +document.getElementById('i-simp').value||0.05,
+    wall_mm:         numv('i-w', 5),
+    height_mm:       numv('i-h', 45),
+    arc_sm:          numv('i-arc', 8),
+    round_c:         numv('i-rc', 1.0),
+    simplify:        numv('i-simp', 0.05),
     face_mode:       S.fm ?? 1,
     face_thickness:  S.ft,
     wall_type:       S.wt ?? 0,
     wall_taper:      S.wallTaper||13.81,
     face_fill:       S.fi,
-    face_fill_cell:  +document.getElementById('fill-cell').value||8,
-    face_fill_wall:  +document.getElementById('fill-wall').value||1.6,
+    face_fill_cell:  numv('fill-cell', 8),
+    face_fill_wall:  numv('fill-wall', 1.6),
     face_fill_solid_pos: S.sp,
-    face_fill_border:+document.getElementById('fill-brd').value||1.5,
-    cover_ct:        +document.getElementById('cv-ct').value ||2,
-    cover_wh:        +document.getElementById('cv-wh').value ||15,
-    cover_clearance: +document.getElementById('cv-cl').value ||0.05,
-    cover_wt:        +document.getElementById('cv-wt').value ||3,
+    face_fill_border:numv('fill-brd', 1.5),
+    cover_ct:        numv('cv-ct', 2),
+    cover_wh:        numv('cv-wh', 15),
+    cover_clearance: numv('cv-cl', 0.05),
+    cover_wt:        numv('cv-wt', 3),
     include_band:    S.bandOn ? '1' : '0',
     band_pos:        S.bandPos || 0,
     band_h:          S.bandH   || 0,
@@ -1489,9 +1499,9 @@ function resizeGrid(size){
   scene.remove(grid); grid.geometry.dispose();
   const s=Math.ceil(size*1.6/50)*50;
   const divs=Math.min(Math.max(Math.round(s/20),10),60);
-  grid=new THREE.GridHelper(s,divs,0x888890,0x888890); grid.rotation.x=Math.PI/2;  scene.add(grid);
+  grid=new THREE.GridHelper(s,divs,0x888890,0x888890); grid.rotation.x=Math.PI/2; grid.visible=!previewOn; scene.add(grid);
 }
-scene.add(new THREE.AxesHelper(80));
+const axes=new THREE.AxesHelper(80); scene.add(axes);
 let meshObj=null, faceObj=null, coverObj=null, bandObj=null;
 function clearFace(){
   if(faceObj){ scene.remove(faceObj); faceObj.geometry.dispose(); faceObj=null; }
@@ -1588,6 +1598,22 @@ if(typeof ResizeObserver !== 'undefined'){
   if(renderer) renderer.render(scene, cam);
 })();
 
+// ── Sunum / Önizleme Modu ────────────────────────────────────
+let previewOn=false;
+ctrl.addEventListener('start', ()=>{
+  if(ctrl.autoRotate){ ctrl.autoRotate=false; }
+});
+function togglePreview(){
+  previewOn=!previewOn;
+  const btn=document.getElementById('b-preview');
+  grid.visible=!previewOn;
+  axes.visible=!previewOn;
+  ctrl.autoRotate=previewOn;
+  ctrl.autoRotateSpeed=2.0;
+  btn.classList.toggle('on',previewOn);
+  btn.textContent = previewOn ? T[S.lang]['preview-btn-on'] : T[S.lang]['preview-btn'];
+}
+
 // ── TR/EN ──────────────────────────────────────────────────────
 const T={
   tr:{
@@ -1598,6 +1624,7 @@ const T={
     'es-text':'DXF dosyası yükle ve Generate 3D\'ye bas','es-sub':'DXF · SVG · EPS',
     'spin-lbl':'Geometri hesaplanıyor…',
     'vp-info':'Sol sürükle: döndür  ·  Scroll: zoom  ·  Sağ sürükle: kaydır',
+    'preview-btn':'▶ Sunum Modu','preview-btn-on':'■ Sunumu Bitir',
     'fill-hdr':'Yüzey Dolgu Deseni',
     'fdesc-0':'Dolu yüzey — boşluksuz, maksimum mukavemet',
     'fdesc-1':'Bal peteği — altıgen hücreler, hafif ve sağlam',
@@ -1628,6 +1655,7 @@ const T={
     'es-text':'Upload a DXF file and click Generate 3D','es-sub':'DXF · SVG · EPS',
     'spin-lbl':'Computing geometry…',
     'vp-info':'Left drag: rotate  ·  Scroll: zoom  ·  Right drag: pan',
+    'preview-btn':'▶ Presentation Mode','preview-btn-on':'■ Stop Presentation',
     'fill-hdr':'Face Fill Pattern',
     'fdesc-0':'Solid surface — no voids, maximum strength',
     'fdesc-1':'Honeycomb — hexagonal cells, light and strong',

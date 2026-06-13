@@ -16,7 +16,7 @@ from lang import _t, set_lang, current_lang
 
 # ── Harfex Engine — GUI'den bağımsız hesaplama katmanı ──────────────────────
 from harfex_engine import (
-    MB, DXFImporter, cleanup,
+    MB, DXFImporter, SVGImporter, cleanup,
     _face_fill_pattern, _earcut_polygon,
     _as_polys, _clean,
     dist, clean_points, signed_area,
@@ -151,12 +151,16 @@ class PickableGLView(gl.GLViewWidget):
         self._press_ctrl  = False
         # Reference to Viewport's scene_objects dict (set by Viewport after creation)
         self._scene_objects = {}
+        # Called on mouse press — used to stop preview auto-rotate on manual interaction
+        self.on_user_interact = None
 
     # ── Mouse events ──────────────────────────────────────────────────────────
     def mousePressEvent(self, ev):
         self._press_pos  = ev.pos()
         self._press_time = time.time()
         self._press_ctrl = bool(ev.modifiers() & Qt.ControlModifier)
+        if self.on_user_interact:
+            self.on_user_interact()
         super().mousePressEvent(ev)
 
     def mouseReleaseEvent(self, ev):
@@ -484,6 +488,13 @@ class Viewport(QWidget):
         self.axis.setSize(80, 80, 80)
         self.view.addItem(self.axis)
 
+        # ── Sunum / Önizleme Modu — otomatik döndürme ──────────────────────────
+        self._preview_mode = False
+        self._preview_timer = QTimer(self)
+        self._preview_timer.setInterval(30)
+        self._preview_timer.timeout.connect(self._preview_tick)
+        self.view.on_user_interact = self._stop_preview_rotate
+
         # Initialize default slot 0 from flat attributes already set above
         s0 = ModelSlot(label="Model 1", x_offset=0.0)
         # Share list references so mutations on flat attrs are reflected in slot
@@ -552,6 +563,14 @@ class Viewport(QWidget):
         self._btn_ungroup.clicked.connect(self._do_dissolve_group)
         h.addWidget(self._btn_ungroup)
 
+        self._preview_btn = QPushButton(_t("vp_preview"))
+        self._preview_btn.setCheckable(True)
+        self._preview_btn.setFixedHeight(26)
+        self._preview_btn.setStyleSheet(_mode_style)
+        self._preview_btn.setToolTip(_t("vp_tip_preview"))
+        self._preview_btn.clicked.connect(self.toggle_preview)
+        h.addWidget(self._preview_btn)
+
         return bar
 
     def _toggle_contour(self):
@@ -565,6 +584,29 @@ class Viewport(QWidget):
         self.view.opts['elevation'] = elevation
         self.view.opts['azimuth']   = azimuth
         self.view.update()
+
+    # ── Sunum / Önizleme Modu ────────────────────────────────────────────────
+    def _preview_tick(self):
+        self.view.opts['azimuth'] = (self.view.opts['azimuth'] + 0.4) % 360
+        self.view.update()
+
+    def _stop_preview_rotate(self):
+        if self._preview_timer.isActive():
+            self._preview_timer.stop()
+
+    def toggle_preview(self):
+        self._preview_mode = not self._preview_mode
+        self.grid.setVisible(not self._preview_mode)
+        self.axis.setVisible(not self._preview_mode)
+        if self._preview_mode:
+            self._preview_timer.start()
+        else:
+            self._preview_timer.stop()
+        if self._preview_btn is not None:
+            self._preview_btn.setChecked(self._preview_mode)
+            self._preview_btn.setText(
+                _t("vp_preview_on") if self._preview_mode else _t("vp_preview")
+            )
 
     # ── Display mode ──────────────────────────────────────────────────────────
     def _disp_params(self):
@@ -1224,9 +1266,12 @@ class Viewport(QWidget):
     def load_dxf(self, path):
         if not Polygon:
             raise RuntimeError("shapely not installed: pip install shapely")
-        new_paths = DXFImporter.read_paths(path)
+        if path.lower().endswith(".svg"):
+            new_paths = SVGImporter.read_paths(path)
+        else:
+            new_paths = DXFImporter.read_paths(path)
         if not new_paths:
-            raise RuntimeError("No displayable paths in DXF.")
+            raise RuntimeError("No displayable paths in file.")
 
         import os as _os
         fname = _os.path.basename(path)
@@ -1679,25 +1724,43 @@ class Viewport(QWidget):
                         rp.append({"poly": pg, "area": abs(pg.area)})
                 except Exception:
                     pass
+            # Sort descending by area: a ring's parent (the ring directly
+            # enclosing it) always has a larger area and therefore a lower
+            # index here, so parent[i] < i always — no cycles possible.
             rp.sort(key=lambda x: x["area"], reverse=True)
-            used = set()
-            for i, r in enumerate(rp):
-                if i in used: continue
-                ou = r["poly"]; holes = []
-                for j, h in enumerate(rp):
-                    if i == j or j in used: continue
+            n = len(rp)
+            parent = [-1] * n
+            for i in range(n):
+                try:
+                    pt = rp[i]["poly"].representative_point()
+                except Exception:
+                    continue
+                best_j, best_area = -1, None
+                for j in range(i):
                     try:
-                        if ou.contains(h["poly"].representative_point()):
-                            holes.append(list(h["poly"].exterior.coords))
-                            used.add(j)
+                        if rp[j]["poly"].contains(pt):
+                            if best_area is None or rp[j]["area"] < best_area:
+                                best_area, best_j = rp[j]["area"], j
                     except Exception:
                         pass
+                parent[i] = best_j
+            depth = [0] * n
+            for i in range(n):
+                depth[i] = depth[parent[i]] + 1 if parent[i] != -1 else 0
+            # Even-depth rings are filled outlines; their direct children
+            # (depth+1) are holes. Children of those holes (depth+2) become
+            # their own filled "island" polygons, recursively.
+            for i, r in enumerate(rp):
+                if depth[i] % 2 != 0:
+                    continue
+                holes = [list(rp[j]["poly"].exterior.coords)
+                         for j in range(n) if parent[j] == i]
                 try:
-                    poly = Polygon(list(ou.exterior.coords), holes)
+                    poly = Polygon(list(r["poly"].exterior.coords), holes)
                     if not poly.is_valid: poly = poly.buffer(0)
                     if not poly.is_empty: polys.append(poly)
                 except Exception:
-                    if not ou.is_empty: polys.append(ou)
+                    if not r["poly"].is_empty: polys.append(r["poly"])
 
         if not polys and lines:
             try: polys = list(polygonize(unary_union(lines)))
@@ -4650,7 +4713,8 @@ class MainWindow(QMainWindow):
         return None
 
     def _import(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Import DXF", "", "DXF Files (*.dxf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Import DXF/SVG", "",
+                                            "DXF/SVG Files (*.dxf *.svg);;DXF Files (*.dxf);;SVG Files (*.svg)")
         if not p: return
         try: self.vp.load_dxf(p)
         except Exception as e: QMessageBox.critical(self, "DXF Error", str(e))

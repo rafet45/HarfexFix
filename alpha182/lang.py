@@ -77,6 +77,10 @@ _STRINGS = {
                              "en": "Group selected objects  (Ctrl+click → multi-select)"},
     "vp_tip_ungroup":       {"tr": "Seçili nesnelerin grubunu kaldır",
                              "en": "Dissolve group of selected objects"},
+    "vp_preview":           {"tr": "▶ Sunum Modu",        "en": "▶ Presentation Mode"},
+    "vp_preview_on":        {"tr": "■ Sunumu Bitir",      "en": "■ Stop Presentation"},
+    "vp_tip_preview":       {"tr": "Izgarayı gizle ve modeli otomatik döndür — müşteriye sunum için",
+                             "en": "Hide grid and auto-rotate the model — for client presentation"},
 
     # ── Sol panel ─────────────────────────────────────────────────────────────
     "lp_generate":          {"tr": "Generate 3D",   "en": "Generate 3D"},

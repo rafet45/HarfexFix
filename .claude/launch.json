@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3000", "--directory", "web_extracted"],
       "port": 3000
+    },
+    {
+      "name": "harfex-web-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3001", "--directory", "web_extracted"],
+      "port": 3001
     }
   ]
 }
