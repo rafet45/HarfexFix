@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Harfex — Cloud Tool</title>
+<script src="three.min.js"></script>
+<script src="STLLoader.js"></script>
+<script src="OrbitControls.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#1a1a1a; --panel:#333333; --border:#3a3a3a;
+  --teal:#13d9e8; --teal-dim:#0a7a84;
+  --bar-h:37px; --vp-bar-h:34px; --sb-h:22px;
+  --pw:406px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#ddd;}
+
+/* ── TOPBAR ── */
+#topbar{
+  height:var(--bar-h);flex-shrink:0;
+  background:linear-gradient(90deg,#2a2a2a 0%,#2a2a2a 41.4%,#1a1a1a 41.5%,#1a1a1a 100%);
+  border-bottom:1px solid #333;
+  display:flex;align-items:stretch;
+}
+#tb-right{
+  flex:1;display:flex;align-items:center;justify-content:flex-end;
+  padding:0 12px;gap:10px;
+}
+.cr-badge{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(19,217,232,.12);border:1px solid var(--teal);
+  color:var(--teal);padding:4px 12px;border-radius:5px;
+  font-size:12px;font-weight:700;
+}
+.cr-badge .cn{font-size:15px;font-weight:900;}
+.btn-buy{background:var(--teal);color:#0a0a0a;border:none;padding:5px 12px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;}
+.btn-buy:hover{background:#0ff5ff;}
+#lang-btn{background:transparent;border:1px solid #555;color:#aaa;padding:4px 9px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;}
+#lang-btn:hover{border-color:var(--teal);color:var(--teal);}
+
+/* ── APP ── */
+#app{display:flex;height:calc(100vh - var(--bar-h) - var(--sb-h));}
+
+/* ── LEFT PANEL ── */
+#left{width:var(--pw);flex-shrink:0;background:var(--panel);overflow-y:auto;overflow-x:hidden;position:relative;}
+#left::-webkit-scrollbar{width:5px;}
+#left::-webkit-scrollbar-thumb{background:#555;}
+#pi{width:406px;position:relative;min-height:860px;}
+
+/* SVG background — 406×820 exact like desktop */
+#bg-svg{position:absolute;top:0;left:0;width:406px;height:820px;pointer-events:none;display:block;}
+
+/* Overlay transparent buttons */
+.ob{
+  position:absolute;background:transparent;border:none;cursor:pointer;padding:0;
+  transition:background .1s;
+}
+.ob:hover{background:rgba(255,255,255,.13);border-radius:5px;}
+.ob:active{background:rgba(0,0,0,.25);border-radius:5px;}
+.ob.on{background:rgba(19,217,232,.18);border-radius:4px;box-shadow:inset 0 0 0 1px rgba(19,217,232,.5);}
+
+/* Inputs */
+.pi{
+  position:absolute;
+  background:rgba(220,220,220,.93);color:#111;
+  border:1px solid #aaa;border-radius:3px;
+  font-size:15px;font-weight:bold;text-align:center;
+  font-family:'Segoe UI',Arial,sans-serif;outline:none;
+}
+.pi:focus{background:#fff;border-color:var(--teal);box-shadow:0 0 0 2px rgba(19,217,232,.3);}
+
+/* Objects section */
+#obj-section{position:absolute;top:766px;left:0;width:406px;background:#333333;}
+.obj-sep{height:1px;background:#444444;}
+.obj-hdr{background:#2a5a8a;color:#cce;font-size:11px;font-weight:bold;border-radius:11px;padding:3px 10px;display:inline-block;margin:8px 13px 4px;}
+#obj-list{margin:0 13px;padding:2px 0;}
+.obj-row{display:flex;align-items:center;gap:6px;padding:2px 0;height:24px;}
+.obj-row input[type=checkbox]{width:14px;height:14px;accent-color:#ffcc22;cursor:pointer;}
+.obj-row label{font-size:11px;color:#ccc;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;}
+
+/* Color dialog */
+.cr-label{font-size:10px;font-weight:bold;color:#888;letter-spacing:.6px;margin-bottom:4px;text-transform:uppercase;}
+.cr-box{width:160px;height:36px;border-radius:5px;border:2px solid #555;cursor:pointer;transition:border-color .15s,transform .1s;padding:0;background:none;-webkit-appearance:none;appearance:none;}
+.cr-box:hover{border-color:#aaa;transform:scaleX(1.02);}
+.cr-box::-webkit-color-swatch-wrapper{padding:0;border-radius:4px;}
+.cr-box::-webkit-color-swatch{border:none;border-radius:4px;}
+.cr-box::-moz-color-swatch{border:none;border-radius:4px;}
+.cr-section{margin-bottom:14px;}
+#band-toggle-bar{height:14px;border-radius:4px 4px 0 0;cursor:pointer;transition:background .2s;user-select:none;}
+#band-toggle-bar.on{background:#3a9e44;}
+#band-toggle-bar.off{background:#444;}
+#mock-wrap{position:relative;display:inline-flex;align-items:center;gap:6px;}
+#band-pos-sl{writing-mode:vertical-lr;direction:rtl;-webkit-appearance:slider-vertical;appearance:slider-vertical;height:220px;width:18px;accent-color:#aaa;cursor:pointer;background:none;border:none;}
+#mock-canvas{border-radius:0 0 4px 4px;cursor:default;}
+#band-h-input{width:58px;font-size:11px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 5px;text-align:center;}
+#band-h-input:focus{outline:none;border-color:#666;}
+
+/* Status */
+#status-lbl{position:absolute;left:13px;width:380px;height:16px;
+  background:rgba(0,0,0,.5);border-radius:3px;font-size:9px;color:#aaa;
+  text-align:center;line-height:16px;display:none;}
+
+/* ── VIEWPORT ── */
+#vp-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+#vp-bar{
+  height:var(--vp-bar-h);background:#161b24;border-bottom:1px solid #333;
+  display:flex;align-items:center;padding:0 8px;gap:4px;flex-shrink:0;
+}
+.vg-btn{background:#252c3a;color:#aab;border:1px solid #3a4255;border-radius:4px;padding:0 10px;font-size:11px;height:26px;cursor:pointer;font-family:inherit;}
+.vg-btn:hover{background:#2e3750;color:#fff;}
+.vg-btn:disabled{background:#1a1f2a;color:#444;border-color:#252c3a;cursor:not-allowed;}
+#cvp{flex:1;width:100%;position:relative;background:#d2d5da;min-height:200px;overflow:hidden;}
+#three-canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}
+#empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.es-icon{font-size:64px;opacity:.18;margin-bottom:12px;}
+.es-text{font-size:14px;color:#666;}
+.es-sub{font-size:11px;color:#555;margin-top:4px;}
+#spinner{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:20;}
+#spinner.on{display:flex;}
+.sr{width:44px;height:44px;border-radius:50%;border:3px solid #333;border-top-color:var(--teal);animation:sp .8s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+#slbl{font-size:12px;color:var(--teal);}
+#vp-stats{position:absolute;top:8px;right:8px;font-size:10px;color:var(--teal-dim);text-align:right;pointer-events:none;display:none;}
+#vp-info{position:absolute;bottom:8px;left:8px;font-size:10px;color:#666;pointer-events:none;line-height:1.6;}
+
+/* ── STATUS BAR ── */
+#sb{height:var(--sb-h);background:#1a1a1a;border-top:1px solid #333;display:flex;align-items:center;padding:0 8px;gap:0;font-size:12px;color:#ccc;flex-shrink:0;}
+.sbsp{color:#555;padding:0 4px;}
+#sb-d,#sb-t,#sb-w,#sb-tm{padding:0 12px;}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:1000;}
+.mo.open{display:flex;}
+.md{background:#2a2a2a;border:1px solid #555;border-radius:8px;padding:20px;min-width:300px;max-width:530px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.7);}
+.md h2{font-size:14px;font-weight:bold;color:#aaccff;margin-bottom:10px;}
+.ms{height:1px;background:#444;margin:10px 0;}
+.ml{font-size:12px;color:#ccc;}
+.mi{width:80px;background:#383838;color:#eee;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:13px;text-align:center;font-family:inherit;}
+.mi:focus{outline:none;border-color:var(--teal);}
+.mr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.bok{background:#1e5c24;color:#fff;border:none;border-radius:4px;padding:6px 18px;font-size:12px;font-weight:bold;cursor:pointer;}
+.bok:hover{background:#2a7d33;}
+.bca{background:#484848;color:#ccc;border:none;border-radius:4px;padding:6px 18px;font-size:12px;cursor:pointer;}
+.bca:hover{background:#5a5a5a;}
+.bdg{background:transparent;color:#ff6655;border:none;font-size:12px;cursor:pointer;padding:4px 0;}
+.bdg:hover{text-decoration:underline;}
+.brow{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px;}
+
+/* Fill dialog */
+.pr{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:4px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;}
+.pr.sel{background:rgba(30,92,36,.35);border-color:#2a7d33;}
+.pp{width:68px;height:48px;border:1px solid #444;background:#111;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.pn{font-size:13px;font-weight:bold;color:#eee;}
+.pd{font-size:10px;color:#888;margin-top:2px;}
+.pbr{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;}
+.pb{background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;}
+.pb.on{background:#1a5a9e;color:#fff;border-color:#2e88ee;}
+.of-cb{display:flex;align-items:center;gap:8px;color:#88ccff;font-size:11px;font-weight:bold;cursor:pointer;margin:6px 0;}
+.of-cb input{accent-color:#3377cc;width:15px;height:15px;cursor:pointer;}
+.dr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0;font-size:12px;}
+
+/* Toast */
+#toast{position:fixed;bottom:30px;right:24px;z-index:2000;padding:10px 18px;border-radius:7px;font-size:13px;font-weight:600;display:none;animation:fu .3s ease;}
+#toast.ok{background:#1a4a2a;border:1px solid #27c93f;color:#27c93f;}
+#toast.err{background:#4a1a1a;border:1px solid #e85513;color:#e85513;}
+@keyframes fu{from{opacity:0;transform:translateY(8px);}to{opacity:1;}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ TOPBAR ═══════════════════════════════════ -->
+<div id="topbar">
+  <div id="tb-right">
+    <div class="cr-badge"><span data-key="cr-lbl">Kredi</span>:&nbsp;<span class="cn" id="cr-cnt">3</span></div>
+    <button class="btn-buy" onclick="location.href='index.html#pricing'" data-key="buy-btn">Kredi Al</button>
+    <button id="lang-btn" onclick="toggleLang()">EN</button>
+  </div>
+</div>
+
+<!-- ═══════════════ APP ═══════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ══ LEFT PANEL ══ -->
+  <div id="left">
+    <div id="pi">
+
+      <!-- SVG arkaplan — desktop ile birebir 406×820 -->
+      <img id="bg-svg" src="butonlar.svg" alt="">
+
+      <!-- ═══ TRANSPARENT BUTTON OVERLAYS ═══ -->
+
+      <!-- Import: x=31 y=118 w=42 h=40 -->
+      <button class="ob" style="left:31px;top:118px;width:42px;height:40px;" title="DXF/SVG Aç"
+        onclick="document.getElementById('fi').click()"></button>
+      <input type="file" id="fi" accept=".dxf,.svg,.eps" style="display:none" onchange="onFile(event)">
+
+      <!-- Mirror: x=92 y=118 w=42 h=40 -->
+      <button class="ob" id="b-mir" style="left:92px;top:118px;width:42px;height:40px;" title="Mirror" onclick="toggleMirror()">
+        <!-- SVG'deki F'yi örter ve döndürür -->
+        <div style="position:absolute;left:5px;top:3px;width:32px;height:30px;background:#E6E6E6;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          <span id="mir-f" style="font-weight:bold;font-size:20px;color:#666;font-family:Arial,sans-serif;display:inline-block;transition:transform .15s;">F</span>
+        </div>
+      </button>
+
+      <!-- Arc input: x=198 y=125 w=52 h=26 -->
+      <input class="pi" id="i-arc" value="8" style="left:198px;top:125px;width:52px;height:26px;" title="Arc Smoothing">
+      <!-- Round input: x=268 y=125 w=52 h=26 -->
+      <input class="pi" id="i-rc" value="1.0" style="left:268px;top:125px;width:52px;height:26px;" title="Corner Round (mm)">
+      <!-- Simp input: x=346 y=125 w=52 h=26 -->
+      <input class="pi" id="i-simp" value="0.05" style="left:346px;top:125px;width:52px;height:26px;" title="Simplify">
+
+      <!-- Height: x=62 y=213 w=65 h=26 -->
+      <input class="pi" id="i-h" value="50" style="left:62px;top:213px;width:65px;height:26px;" title="Wall Height (mm)">
+      <!-- Wall thick: x=193 y=213 w=65 h=26 -->
+      <input class="pi" id="i-w" value="3" style="left:193px;top:213px;width:65px;height:26px;" title="Wall Thickness (mm)">
+      <!-- Face thick: x=318 y=213 w=65 h=26 -->
+      <input class="pi" id="i-fp" value="2.4" style="left:318px;top:213px;width:65px;height:26px;" title="Front Face Thickness (mm)">
+
+      <!-- Channel type buttons (y=290) -->
+      <button class="ob" id="b-ws1" style="left:62px;top:290px;width:52px;height:49px;" title="Straight Channel" onclick="setWT(0)"></button>
+      <button class="ob"    id="b-ws2" style="left:139px;top:290px;width:52px;height:49px;" title="Tapered Channel"  onclick="setWT(1)"></button>
+      <button class="ob"    id="b-ws3" style="left:216px;top:290px;width:52px;height:49px;" title="Flared Channel"   onclick="setWT(2)"></button>
+      <button class="ob"    id="b-wd"  style="left:292px;top:290px;width:52px;height:49px;" title="Taper Açısı (°)" onclick="setTaperDeg()"></button>
+
+      <!-- Eski mod ikonlarını kapat (tıpkı desktop _build() gibi) -->
+      <div style="position:absolute;left:32px;top:336px;width:342px;height:90px;background:#333333;pointer-events:none;"></div>
+
+      <!-- Mod button icon overlays (pointer-events:none → tıklamalar butonlara geçer) -->
+      <img src="mod1.svg"    style="position:absolute;left:103px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
+      <img src="mod2.svg"    style="position:absolute;left:176px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
+      <img src="onlywall.svg" style="position:absolute;left:249px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
+
+      <!-- Mod buttons (y=372) — şeffaf tıklama alanı, ikonların üstünde -->
+      <button class="ob" id="b-m1" style="left:103px;top:372px;width:53px;height:48px;" title="Mod 1 — İç Yüz"          onclick="setFM(1)"></button>
+      <button class="ob"    id="b-m2" style="left:176px;top:372px;width:53px;height:48px;" title="Mod 2 — Dış Yüz"          onclick="setFM(2)"></button>
+      <button class="ob"    id="b-ow" style="left:249px;top:372px;width:53px;height:48px;" title="Sadece Duvar (Yüzsüz)"    onclick="setFM(0)"></button>
+
+      <!-- Tab row icon overlays -->
+      <img src="filldes.svg"   style="position:absolute;left:32px;top:453px;width:52px;height:49px;pointer-events:none;" alt="">
+      <img src="colorbuton.svg" style="position:absolute;left:320px;top:453px;width:52px;height:49px;pointer-events:none;" alt="">
+
+      <!-- Tab buttons (y=453) -->
+      <button class="ob" id="b-fill"  style="left:32px;top:453px;width:52px;height:49px;"  title="Fill Deseni"         onclick="openFill()"></button>
+      <button class="ob" id="b-tops"  style="left:104px;top:453px;width:52px;height:49px;" title="Top Slot"            onclick="openTopSlot()"></button>
+      <button class="ob" id="b-bots"  style="left:176px;top:453px;width:52px;height:49px;" title="Bottom Slot"         onclick="openBotSlot()"></button>
+      <button class="ob" id="b-cov"   style="left:248px;top:453px;width:52px;height:49px;" title="Back Cover Ayarları" onclick="showModal('m-cover')"></button>
+      <button class="ob" id="b-col"   style="left:320px;top:453px;width:52px;height:49px;" title="Renk Ata"            onclick="showModal('m-color')"></button>
+
+      <!-- DXF buttons (y=534) -->
+      <button class="ob" id="b-plex" style="left:141px;top:534px;width:52px;height:49px;" title="Pleksiglas DXF (1 kredi)" onclick="showModal('m-plex')"></button>
+      <button class="ob" id="b-foam" style="left:213px;top:534px;width:52px;height:49px;" title="Back Foam DXF (1 kredi)"  onclick="showModal('m-foam')"></button>
+
+      <!-- Generate 3D: x=146 y=598 w=116 h=19 -->
+      <button class="ob" id="b-gen" style="left:146px;top:598px;width:116px;height:19px;" title="Generate 3D" onclick="generate()"></button>
+
+      <!-- Export STL: x=140 y=656 w=66 h=22 -->
+      <button class="ob" id="b-estl"  style="left:140px;top:656px;width:66px;height:22px;"  title="Export STL (1 kredi)"        onclick="doExp('wall_stl','harfex_wall.stl')"></button>
+      <!-- Export 3MF: x=209 y=656 w=64 h=22 -->
+      <button class="ob" id="b-e3mf"  style="left:209px;top:656px;width:64px;height:22px;"  title="Export 3MF (1 kredi)"        onclick="doExp('combined_3mf','harfex.3mf')"></button>
+      <!-- Cover Export: x=140 y=682 w=133 h=18 -->
+      <button class="ob" id="b-ecover" style="left:140px;top:682px;width:133px;height:22px;" title="Back Cover STL (1 kredi)"    onclick="doExp('cover_stl','harfex_cover.stl')"></button>
+
+      <!-- R/P: x=170,203 y=711 w=33 h=25 -->
+      <button class="ob" id="b-r" style="left:170px;top:711px;width:33px;height:25px;" title="Profil Kaydet (R)" onclick="showModal('m-prof')"></button>
+      <button class="ob" id="b-p" style="left:203px;top:711px;width:33px;height:25px;" title="Profil Yükle (P)"  onclick="showModal('m-prof')"></button>
+
+      <!-- Status: x=13 y=742 -->
+      <div id="status-lbl" style="top:742px;"></div>
+
+      <!-- Objects section -->
+      <div id="obj-section">
+        <div class="obj-sep"></div>
+        <span class="obj-hdr" data-key="obj-hdr">Objects</span>
+        <div id="obj-list"><div style="color:#555;font-size:11px;padding:4px 2px;">—</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ VIEWPORT ══ -->
+  <div id="vp-wrap">
+    <div id="vp-bar" style="display:none;"></div>
+    <div id="cvp">
+      <canvas id="three-canvas"></canvas>
+      <div id="empty-state">
+        <div class="es-icon">📦</div>
+        <div class="es-text" data-key="es-text">DXF dosyası yükle ve Generate 3D'ye bas</div>
+        <div class="es-sub" data-key="es-sub">DXF · SVG · EPS</div>
+      </div>
+      <div id="spinner">
+        <div class="sr"></div>
+        <div id="slbl" data-key="spin-lbl">Geometri hesaplanıyor…</div>
+      </div>
+      <div id="vp-stats"></div>
+      <div id="vp-info" data-key="vp-info">Sol sürükle: döndür  ·  Scroll: zoom  ·  Sağ sürükle: kaydır</div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══════════════ STATUS BAR ════════════════════════════════ -->
+<div id="sb">
+  <span id="sb-d">—</span><span class="sbsp">|</span>
+  <span id="sb-t">—</span><span class="sbsp">|</span>
+  <span id="sb-w">—</span>
+  <span style="flex:1;"></span>
+  <span id="sb-tm"></span>
+</div>
+
+<!-- ═══════════════ TOAST ══════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ═══════════════ MODALS ══════════════════════════════════════ -->
+
+<!-- About -->
+<div class="mo" id="m-about">
+  <div class="md" style="text-align:center;min-width:340px;">
+    <img src="logo yeni.png" style="height:58px;margin-bottom:12px;"><br>
+    <div style="font-size:16px;font-weight:bold;color:var(--teal);margin-bottom:4px;">Harfex Cloud Tool</div>
+    <div style="font-size:12px;color:#777;margin-bottom:14px;">Channel Letter 3D Generator — Alpha 18.2</div>
+    <div style="font-size:11px;color:#555;margin-bottom:16px;">Powered by: manifold3d · Shapely · FastAPI · Three.js</div>
+    <button class="bca" onclick="closeModal('m-about')">Kapat</button>
+  </div>
+</div>
+
+<!-- Fill Design Dialog (FaceFillDialog) -->
+<div class="mo" id="m-fill">
+  <div class="md" style="min-width:490px;">
+    <h2 data-key="fill-hdr">Yüzey Dolgu Deseni</h2>
+    <div class="ms"></div>
+    <div class="pr sel" id="pr-0" onclick="selFill(0)">
+      <input type="radio" name="frd" id="frd-0" checked>
+      <canvas id="fpv-0" width="68" height="48" class="pp"></canvas>
+      <div><div class="pn">Solid</div><div class="pd" data-key="fdesc-0">Dolu yüzey — boşluksuz, maksimum mukavemet</div></div>
+    </div>
+    <div class="pr" id="pr-1" onclick="selFill(1)">
+      <input type="radio" name="frd" id="frd-1">
+      <canvas id="fpv-1" width="68" height="48" class="pp"></canvas>
+      <div><div class="pn">Honeycomb</div><div class="pd" data-key="fdesc-1">Bal peteği — altıgen hücreler, hafif ve sağlam</div></div>
+    </div>
+    <div class="pr" id="pr-2" onclick="selFill(2)">
+      <input type="radio" name="frd" id="frd-2">
+      <canvas id="fpv-2" width="68" height="48" class="pp"></canvas>
+      <div><div class="pn">Grid</div><div class="pd" data-key="fdesc-2">Kafes — kare delikler, düzgün yoğunluk</div></div>
+    </div>
+    <div class="pr" id="pr-3" onclick="selFill(3)">
+      <input type="radio" name="frd" id="frd-3">
+      <canvas id="fpv-3" width="68" height="48" class="pp"></canvas>
+      <div><div class="pn">Lines</div><div class="pd" data-key="fdesc-3">Çizgiler — dikey şeritler, hızlı baskı</div></div>
+    </div>
+    <div class="ms"></div>
+    <div class="dr">
+      <span data-key="fill-cell">Hücre boyutu (mm):</span>
+      <input type="number" class="mi" id="fill-cell" value="8.0" min="3" max="40" step="0.5">
+      <span data-key="fill-wlbl" style="margin-left:10px;">Petek duvarı (mm):</span>
+      <input type="number" class="mi" id="fill-wall" value="1.6" min="0.2" max="8" step="0.1">
+    </div>
+    <div class="dr" style="margin-top:4px;">
+      <span data-key="fill-brd">Kenar payı (mm):</span>
+      <input type="number" class="mi" id="fill-brd" value="1.5" min="0" max="20" step="0.5">
+    </div>
+    <div class="ms"></div>
+    <label class="of-cb"><input type="checkbox" id="of-cb"><span data-key="fill-of">Sadece yüz plakası (duvar olmadan)</span></label>
+    <div class="ms"></div>
+    <div style="font-size:11px;font-weight:bold;color:#ccddff;margin-bottom:5px;" data-key="fill-posH">Koruyucu solid katmanlar (0.8 mm — dış mekân):</div>
+    <div class="pbr">
+      <button class="pb on" id="sp-0" onclick="setSP(0)" data-key="sp0">Kapalı</button>
+      <button class="pb"    id="sp-1" onclick="setSP(1)" data-key="sp1">Arka yüz</button>
+      <button class="pb"    id="sp-2" onclick="setSP(2)" data-key="sp2">Ön yüz</button>
+      <button class="pb"    id="sp-3" onclick="setSP(3)" data-key="sp3">Her ikisi</button>
+    </div>
+    <div class="brow">
+      <button class="bok"  onclick="applyFill()"        data-key="fill-ok">Uygula</button>
+      <button class="bca"  onclick="closeModal('m-fill')" data-key="fill-ca">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Back Cover -->
+<div class="mo" id="m-cover">
+  <div class="md">
+    <h2 data-key="cv-hdr">Back Cover Ayarları</h2><div class="ms"></div>
+    <div class="mr"><span class="ml" data-key="cv-ct">Taban kalınlığı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-ct" value="2.0" min="0.5" max="20" step="0.1"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml" data-key="cv-wh">İç duvar yüksekliği:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-wh" value="15.0" min="1" max="200" step="0.5"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml" data-key="cv-cl">Boşluk / Clearance:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-cl" value="0.05" min="0" max="2" step="0.01"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml" data-key="cv-wt">Tab duvar kalınlığı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-wt" value="3.0" min="0.5" max="20" step="0.1"><span class="ml">mm</span></div></div>
+    <div style="margin-top:6px;"><button class="bdg" onclick="removeCover()" data-key="cv-rm">Back Cover'ı Kaldır</button></div>
+    <div class="brow">
+      <button class="bok"  onclick="applyCover()"          data-key="cv-ok">Tamam</button>
+      <button class="bca"  onclick="closeModal('m-cover')"  data-key="cv-ca">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Top Slot -->
+<div class="mo" id="m-tops">
+  <div class="md">
+    <h2 data-key="ts-hdr">Üst Tırnak Slotu</h2><div class="ms"></div>
+    <div class="mr"><span class="ml" data-key="ts-proj">Tırnak genişliği / proj (mm):</span><input type="number" class="mi" id="ts-pr" value="4.0" min="0.1" max="60" step="0.5"></div>
+    <div class="mr"><span class="ml" data-key="ts-z">Üst kenardan mesafe (negatif mm):</span><input type="number" class="mi" id="ts-z" value="-2.0" max="-0.1" step="0.5"></div>
+    <div class="brow">
+      <button class="bok"  onclick="applyTopSlot()"          data-key="ts-ok">Uygula</button>
+      <button class="bca"  onclick="closeModal('m-tops')"     data-key="ts-ca">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Slot -->
+<div class="mo" id="m-bots">
+  <div class="md">
+    <h2 data-key="bs-hdr">Alt Tırnak Slotu</h2><div class="ms"></div>
+    <div class="mr"><span class="ml" data-key="bs-proj">Tırnak genişliği / proj (mm):</span><input type="number" class="mi" id="bs-pr" value="4.0" min="0.1" max="60" step="0.5"></div>
+    <div class="mr"><span class="ml" data-key="bs-z">Alt kenardan mesafe (negatif mm):</span><input type="number" class="mi" id="bs-z" value="-2.0" max="-0.1" step="0.5"></div>
+    <div class="brow">
+      <button class="bok"  onclick="applyBotSlot()"           data-key="bs-ok">Uygula</button>
+      <button class="bca"  onclick="closeModal('m-bots')"      data-key="bs-ca">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Foam DXF -->
+<div class="mo" id="m-foam">
+  <div class="md">
+    <h2>Back Foam DXF</h2><div class="ms"></div>
+    <div class="mr"><span class="ml">Offset (+ dışa / − içe):</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="foam-off" value="-0.50" min="-20" max="20" step="0.1"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml">Köşe yumuşatma yarıçapı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="foam-cr" value="0" min="0" max="50" step="0.5"><span class="ml">mm</span></div></div>
+    <div class="brow">
+      <button class="bok" onclick="doFoamExport()">Dışa Aktar</button>
+      <button class="bca" onclick="closeModal('m-foam')">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pleksiglas DXF -->
+<div class="mo" id="m-plex">
+  <div class="md">
+    <h2>Pleksiglas DXF</h2><div class="ms"></div>
+    <div class="mr"><span class="ml">Offset (+ dışa / − içe):</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="plex-off" value="-0.50" min="-20" max="20" step="0.1"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml">Köşe yumuşatma yarıçapı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="plex-cr" value="0" min="0" max="50" step="0.5"><span class="ml">mm</span></div></div>
+    <div class="brow">
+      <button class="bok" onclick="doPlexExport()">Dışa Aktar</button>
+      <button class="bca" onclick="closeModal('m-plex')">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Color -->
+<div class="mo" id="m-color">
+  <div class="md" style="min-width:460px;">
+    <h2 data-key="col-hdr">Renk Ata — Filament Renkleri</h2>
+    <div class="ms"></div>
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+
+      <!-- Sol: renk kutuları -->
+      <div style="flex:1;">
+        <div class="cr-section">
+          <div class="cr-label">Channel Body</div>
+          <input type="color" id="col-wall" value="#59e0d9" class="cr-box"
+            oninput="onColorInput('wall',this.value)"
+            onchange="onColorInput('wall',this.value)">
+        </div>
+        <div class="cr-section">
+          <div class="cr-label">Strip</div>
+          <input type="color" id="col-band" value="#2255cc" class="cr-box"
+            oninput="onColorInput('band',this.value)"
+            onchange="onColorInput('band',this.value)">
+        </div>
+        <div class="cr-section">
+          <div class="cr-label">Front Face</div>
+          <input type="color" id="col-face" value="#f27318" class="cr-box"
+            oninput="onColorInput('face',this.value)"
+            onchange="onColorInput('face',this.value)">
+        </div>
+        <div class="cr-section">
+          <div class="cr-label">Back Cover</div>
+          <input type="color" id="col-cover" value="#aaaaaa" class="cr-box"
+            oninput="onColorInput('cover',this.value)"
+            onchange="onColorInput('cover',this.value)">
+        </div>
+      </div>
+
+      <!-- Sağ: mockup -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+        <!-- Toggle bar -->
+        <div id="band-toggle-bar" class="off" style="width:104px;"
+             onclick="toggleBand()" title="Strip aktif/inaktif">
+          <div style="text-align:center;font-size:9px;color:#fff;line-height:14px;letter-spacing:.5px;" id="band-toggle-lbl">OFF</div>
+        </div>
+        <!-- Slider + canvas -->
+        <div id="mock-wrap">
+          <input type="range" id="band-pos-sl" min="0" max="100" value="50"
+                 oninput="onBandPosSlider(this.value)" title="Strip konumu">
+          <canvas id="mock-canvas" width="80" height="220"></canvas>
+        </div>
+        <!-- Band yüksekliği -->
+        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+          <input type="number" id="band-h-input" value="9" min="1" step="0.5"
+                 oninput="onBandHInput(this.value)">
+          <span style="font-size:10px;color:#777;">mm</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="brow" style="margin-top:14px;">
+      <button class="bca" onclick="closeModal('m-color')" data-key="col-ca">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Taper Degree -->
+<div class="mo" id="m-taper">
+  <div class="md" style="min-width:300px;">
+    <h2>Taper / Flare Mesafesi</h2><div class="ms"></div>
+    <div class="mr">
+      <span class="ml">Mesafe (mm):</span>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" class="mi" id="td-val" value="13.81" min="0.1" max="200" step="0.1">
+        <span class="ml">mm</span>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#666;margin-top:6px;">Duvarın dış kenarının ne kadar açılacağını belirler.</div>
+    <div class="brow">
+      <button class="bok"  onclick="applyTaperDeg()">Uygula</button>
+      <button class="bca"  onclick="closeModal('m-taper')">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile -->
+<div class="mo" id="m-prof">
+  <div class="md" style="min-width:360px;">
+    <h2 data-key="prf-hdr">Profil Listesi</h2><div class="ms"></div>
+    <select id="prf-list" size="7" style="width:100%;background:#2a2a2a;color:#ddd;border:1px solid #444;font-size:13px;padding:2px;margin-bottom:8px;" onchange="document.getElementById('prf-name').value=this.value"></select>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input type="text" id="prf-name" placeholder="Profil adı…" style="flex:1;background:#2a2a2a;color:#ddd;border:1px solid #444;font-size:13px;padding:6px 8px;border-radius:4px;">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="bok"  style="padding:5px 12px;" onclick="applyProf()" data-key="prf-ap">▶ Uygula</button>
+      <button class="bca"  style="padding:5px 12px;" onclick="saveProf()"  data-key="prf-sv">💾 Kaydet</button>
+      <button class="bca"  style="padding:5px 12px;color:#ff8888;" onclick="delProf()" data-key="prf-dl">✕ Sil</button>
+    </div>
+    <div class="brow"><button class="bca" onclick="closeModal('m-prof')" data-key="prf-cl">Kapat</button></div>
+  </div>
+</div>
+
+<!-- ═══════════════ SCRIPTS ════════════════════════════════════ -->
+<script>
+const API = 'http://127.0.0.1:8080';
+
+// ── State — ModelSlot varsayılanlarını yansıtır (main.py satır 74-104) ──
+const S = {
+  file:null, ready:false, credits:3, lang:'tr',
+  // ModelSlot defaults
+  wt:null,        // wall_type: null=seçilmedi 0=Düz 1=Açılı 2=Kavisli
+  fm:null,        // face_mode: null=seçilmedi 0=OnlyWall 1=Mod1 2=Mod2 3=OnlyFace
+  fi:0,           // face_fill: 0=Solid 1=Honeycomb 2=Grid 3=Lines
+  sp:0,           // face_fill_solid_pos
+  ft:3.0,         // face_thickness
+  mirOn:false, covOn:false, wallTaper:13.81,
+  topTab:false, botTab:false,
+  topProj:4.0, topTabZ:-2.0,
+  botProj:4.0, botTabZ:2.0,
+  wc:'#59e0d9', fc:'#f27318', cc:'#aaaaaa', bc:'#2255cc',
+  bandOn:false, bandPos:null, bandH:null,
+  dm:'shaded', profs:{},
+};
+
+// ── Highlight helpers — mirrors _update_mod_highlight / _update_slot_highlight / _update_wall_highlight
+function _updateModHighlight(){
+  document.getElementById('b-m1').classList.toggle('on', S.fm===1);
+  document.getElementById('b-m2').classList.toggle('on', S.fm===2);
+  document.getElementById('b-ow').classList.toggle('on', S.fm===0);
+  document.getElementById('b-fill').classList.toggle('on', S.fi!==0);
+}
+function _updateWallHighlight(){
+  ['b-ws1','b-ws2','b-ws3'].forEach((id,i)=>
+    document.getElementById(id).classList.toggle('on', i===S.wt));
+  document.getElementById('b-wd').classList.toggle('on', S.wt===1||S.wt===2);
+  document.getElementById('sb-w').textContent=['Düz','Açılı','Kavisli'][S.wt]||'';
+}
+function _updateSlotHighlight(){
+  document.getElementById('b-tops').classList.toggle('on', S.topTab);
+  document.getElementById('b-bots').classList.toggle('on', S.botTab);
+}
+// Tüm butonları S state'ine göre günceller — DXF yüklenince çağrılır
+function _applyUIState(){
+  _updateModHighlight();
+  _updateWallHighlight();
+  _updateSlotHighlight();
+  document.getElementById('b-cov').classList.toggle('on', S.covOn);
+  document.getElementById('b-mir').classList.toggle('on', S.mirOn);
+  document.getElementById('mir-f').style.transform=S.mirOn?'scaleX(-1)':'scaleX(1)';
+}
+
+// ── File ───────────────────────────────────────────────────────
+function onFile(e){
+  const f = e.target.files[0]; if(!f) return;
+  const ext = f.name.split('.').pop().toLowerCase();
+  if(!['dxf','svg','eps'].includes(ext)){ toast('Desteklenmeyen: .'+ext,'err'); return; }
+  S.file = f; S.ready = false;
+  setStat('📄 ' + f.name + ' yüklendi');
+  document.getElementById('sb-d').textContent = f.name;
+  toast(f.name+' yüklendi','ok');
+  _applyUIState();   // DXF yüklenince butonları mevcut state'e göre light et
+  loadContour(f);
+}
+
+// ── DXF 2D Kontur (mavi çizgiler) ──────────────────────────────────────────
+let contourObj = null;
+async function loadContour(f){
+  if(!f) f = S.file;
+  if(!f) return;
+  clearContour();
+  try{
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('arc_sm',   +document.getElementById('i-arc').value  || 8);
+    fd.append('round_c',  +document.getElementById('i-rc').value   || 1.0);
+    fd.append('simplify', +document.getElementById('i-simp').value || 0.05);
+    fd.append('mirror_x', S.mirOn ? 1 : 0);
+    const r = await fetch(`${API}/api/contour`, {method:'POST', body:fd});
+    if(!r.ok) return;
+    const data = await r.json();
+    drawContour(data, f);
+  } catch(e){
+    console.log('Contour API unavailable:', e.message);
+  }
+}
+
+// Arc/Round/Simplify değişince kontur güncelle (500ms debounce)
+let _cDebounce = null;
+function _onContourParam(){
+  if(!S.file) return;
+  clearTimeout(_cDebounce);
+  _cDebounce = setTimeout(() => loadContour(S.file), 500);
+}
+
+function clearContour(){
+  if(contourObj){ scene.remove(contourObj); contourObj.geometry.dispose(); contourObj = null; }
+}
+function drawContour(data, f){
+  const lines = data.lines || [];
+  if(!lines.length){ setStat('Kontur verisi boş', 2000); return; }
+  const bbox = data.bbox || {};
+  const cx = ((bbox.min_x||0) + (bbox.max_x||0)) / 2;
+  const cy = ((bbox.min_y||0) + (bbox.max_y||0)) / 2;
+  const verts = [];
+  for(const seg of lines){
+    const [x1,y1,x2,y2] = seg;
+    verts.push(x1-cx, y1-cy, 0,  x2-cx, y2-cy, 0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  contourObj = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({color:0x0044bb}));
+  scene.add(contourObj);
+  geo.computeBoundingBox();
+  const sz  = new THREE.Vector3(); geo.boundingBox.getSize(sz);
+  const mx  = Math.max(sz.x, sz.y, 1);
+  cam.position.set(0, 0, mx * 1.6);
+  cam.near = mx * 0.001; cam.far = mx * 100;
+  cam.updateProjectionMatrix();
+  ctrl.target.set(0, 0, 0); ctrl.update();
+  resizeGrid(mx);
+  document.getElementById('empty-state').style.display = 'none';
+  const fname = (f && f.name) ? f.name : 'DXF';
+  const w = bbox.max_x != null ? (bbox.max_x - bbox.min_x).toFixed(1) : '?';
+  const h = bbox.max_y != null ? (bbox.max_y - bbox.min_y).toFixed(1) : '?';
+  document.getElementById('sb-d').textContent = `${fname}  —  ${w} × ${h} mm`;
+  setStat(`${data.path_count} kontur, ${lines.length} segment yüklendi`, 3000);
+}
+// Drag-drop on panel
+document.getElementById('pi').addEventListener('dragover', e=>e.preventDefault());
+document.getElementById('pi').addEventListener('drop', e=>{
+  e.preventDefault();
+  const f = e.dataTransfer.files[0]; if(!f) return;
+  const dt = new DataTransfer(); dt.items.add(f);
+  document.getElementById('fi').files = dt.files;
+  onFile({target:{files:dt.files}});
+});
+
+// ── Wall type — mirrors _set_wall_type ────────────────────────
+let _pendingWT = null;
+function setWT(t){
+  // Only Face modundaysa Mod1'e dön, fill sıfırla (main.py _set_wall_type)
+  if(S.fm===3){ S.fm=1; S.fi=0; _updateModHighlight(); }
+  if(t===0){
+    // Düz duvar — açı sormaya gerek yok
+    S.wt=0; _updateWallHighlight();
+    setStat('Duvar tipi: Düz', 2500);
+    if(S.file) generate();
+  } else {
+    // Açılı/Kavisli — taper mesafesi sor
+    _pendingWT=t;
+    document.getElementById('td-val').value=S.wallTaper||13.81;
+    showModal('m-taper');
+  }
+}
+function setTaperDeg(){
+  // b-wd butonu doğrudan açılı seçmek için — mevcut wt'yi tapered yap
+  _pendingWT = S.wt===0 ? 1 : S.wt;
+  document.getElementById('td-val').value=S.wallTaper||13.81;
+  showModal('m-taper');
+}
+function applyTaperDeg(){
+  const n=parseFloat(document.getElementById('td-val').value);
+  if(isNaN(n)||n<=0) return;
+  S.wallTaper=n;
+  if(_pendingWT!==null){ S.wt=_pendingWT; _pendingWT=null; }
+  _updateWallHighlight();
+  setStat('Taper: '+n.toFixed(2)+' mm', 2500);
+  closeModal('m-taper');
+  if(S.file) generate();
+}
+
+// ── Face mode — mirrors _face_mode_direct / _only_wall ─────────
+function setFM(m){
+  if(m===0){
+    // Only Wall — mirrors _only_wall: fill sıfırla
+    S.fm=0; S.fi=0;
+    _updateModHighlight();
+    setStat('Only Wall — sadece duvar', 2500);
+    if(S.file) generate();
+  } else {
+    // Mod1 / Mod2 — kalınlık i-fp'den oku, generate tetikle
+    S.ft=parseFloat(document.getElementById('i-fp').value)||3.0;
+    S.fm=m;
+    _updateModHighlight();
+    setStat(['','Mod 1 (Dış Yüz)','Mod 2 (İç Yüz)'][m]||'', 2500);
+    if(S.file) generate();
+  }
+}
+
+// ── Mirror — mirrors _my ────────────────────────────────────────
+function toggleMirror(){
+  S.mirOn = !S.mirOn;
+  document.getElementById('b-mir').classList.toggle('on', S.mirOn);
+  document.getElementById('mir-f').style.transform = S.mirOn ? 'scaleX(-1)' : 'scaleX(1)';
+  // Sadece kontur güncellenir — generate tetiklenmez (main.py _my davranışı)
+  if(contourObj) contourObj.scale.x = S.mirOn ? -1 : 1;
+  else if(S.file) loadContour(S.file);
+}
+
+// ── Fill preview canvases ───────────────────────────────────────
+function _drawFillPreviews(){
+  const BG='#111', WALL='#4a9', VOID='#1a2a1a';
+
+  // 0 — Solid
+  (function(){
+    const cv=document.getElementById('fpv-0'), cx=cv.getContext('2d');
+    cx.fillStyle='#3a6677'; cx.fillRect(0,0,68,48);
+    cx.fillStyle='#5abbd0'; cx.fillRect(4,4,60,40);
+  })();
+
+  // 1 — Honeycomb
+  (function(){
+    const cv=document.getElementById('fpv-1'), cx=cv.getContext('2d');
+    cx.fillStyle=BG; cx.fillRect(0,0,68,48);
+    const r=9, w=1.4;
+    const ri=r-w;
+    const colStep=r*Math.sqrt(3), rowStep=r*1.5;
+    cx.strokeStyle=WALL; cx.lineWidth=w;
+    cx.fillStyle=VOID;
+    for(let row=-1;row<4;row++){
+      for(let col=-1;col<5;col++){
+        const xOff=(row%2===0)?0:colStep/2;
+        const cx0=col*colStep+xOff+10, cy0=row*rowStep+14;
+        cx.beginPath();
+        for(let k=0;k<6;k++){
+          const a=Math.PI/180*(90+60*k);
+          const px=cx0+ri*Math.cos(a), py=cy0+ri*Math.sin(a);
+          k===0?cx.moveTo(px,py):cx.lineTo(px,py);
+        }
+        cx.closePath(); cx.fill(); cx.stroke();
+      }
+    }
+  })();
+
+  // 2 — Grid
+  (function(){
+    const cv=document.getElementById('fpv-2'), cx=cv.getContext('2d');
+    cx.fillStyle=BG; cx.fillRect(0,0,68,48);
+    const cell=13, wall=2.2;
+    cx.fillStyle=WALL;
+    for(let x=2;x<68;x+=cell) cx.fillRect(x,0,wall,48);
+    for(let y=2;y<48;y+=cell) cx.fillRect(0,y,68,wall);
+    cx.fillStyle=VOID;
+    for(let x=2;x<68;x+=cell){
+      for(let y=2;y<48;y+=cell){
+        cx.fillRect(x+wall,y+wall,cell-wall-0.5,cell-wall-0.5);
+      }
+    }
+  })();
+
+  // 3 — Lines
+  (function(){
+    const cv=document.getElementById('fpv-3'), cx=cv.getContext('2d');
+    cx.fillStyle=BG; cx.fillRect(0,0,68,48);
+    const cell=11, wall=2.5;
+    cx.fillStyle=WALL;
+    for(let x=2;x<68;x+=cell) cx.fillRect(x,0,wall,48);
+    cx.fillStyle=VOID;
+    for(let x=2;x<68;x+=cell) cx.fillRect(x+wall,0,cell-wall-0.5,48);
+  })();
+}
+document.addEventListener('DOMContentLoaded', _drawFillPreviews);
+
+// ── Fill dialog — mirrors _face_fill_dialog ────────────────────
+let _fi=0, _sp=0;
+function openFill(){ _fi=S.fi; _sp=S.sp; selFill(S.fi); setSP(S.sp); showModal('m-fill'); }
+function selFill(i){
+  _fi=i;
+  [0,1,2,3].forEach(j => {
+    document.getElementById('frd-'+j).checked = j===i;
+    document.getElementById('pr-'+j).classList.toggle('sel', j===i);
+  });
+  // Solid modda SP butonları etkisiz — engine fill!=0 gerektiriyor
+  const spActive = i !== 0;
+  [1,2,3].forEach(j => {
+    const btn = document.getElementById('sp-'+j);
+    btn.disabled = !spActive;
+    btn.style.opacity = spActive ? '' : '0.3';
+    btn.style.cursor  = spActive ? '' : 'not-allowed';
+  });
+  if (!spActive) setSP(0);
+}
+function setSP(p){
+  _sp=p;
+  [0,1,2,3].forEach(i => document.getElementById('sp-'+i).classList.toggle('on', i===p));
+}
+function applyFill(){
+  S.fi=_fi; S.sp=_sp;
+  // only_face checkbox — mirrors dlg.only_face logic
+  const onlyFace=document.getElementById('of-cb').checked;
+  if(onlyFace){
+    if(S.ft<=0) S.ft=3.0;
+    S.fm=3;
+  } else {
+    if(S.fm===3) S.fm=1;  // only_face'den çıkıldı → Mod1'e dön
+  }
+  _updateModHighlight();
+  closeModal('m-fill');
+  if(S.file && S.fm!==0) generate();
+}
+
+// ── Cover ──────────────────────────────────────────────────────
+function applyCover(){
+  if(!S.file){ toast('Önce DXF yükleyin','err'); closeModal('m-cover'); return; }
+  S.covOn=true;
+  document.getElementById('b-cov').classList.add('on');
+  closeModal('m-cover');
+  _buildCover();
+}
+async function _buildCover(){
+  setSpin(true,'Back Cover oluşturuluyor…');
+  try{
+    const fd=new FormData();
+    fd.append('file', S.file);
+    const p=params();
+    fd.append('wall_mm',         p.wall_mm);
+    fd.append('height_mm',       p.height_mm);
+    fd.append('wall_type',       p.wall_type);
+    fd.append('wall_taper',      p.wall_taper);
+    fd.append('arc_sm',          p.arc_sm);
+    fd.append('round_c',         p.round_c);
+    fd.append('simplify',        p.simplify);
+    fd.append('mirror_x',        p.mirror_x);
+    fd.append('cover_ct',        document.getElementById('cv-ct').value||2);
+    fd.append('cover_wh',        document.getElementById('cv-wh').value||15);
+    fd.append('cover_clearance', document.getElementById('cv-cl').value||0.05);
+    fd.append('cover_wt',        document.getElementById('cv-wt').value||3);
+    const r=await fetch(`${API}/api/cover`,{method:'POST',body:fd});
+    if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
+    const blob=await r.blob();
+    S._coverBlob=blob;
+    loadCoverSTL(blob.slice());
+    toast('Back Cover hazır ✓','ok');
+    setStat('Back Cover oluşturuldu',3000);
+  }catch(e){ toast('Back Cover hatası: '+e.message,'err'); }
+  finally{ setSpin(false); }
+}
+function removeCover(){
+  S.covOn=false;
+  document.getElementById('b-cov').classList.remove('on');
+  closeModal('m-cover');
+  setStat('Back Cover kaldırıldı', 2000);
+}
+
+// ── Top/Bot Slot — mirrors _top_slot / _bot_slot ──────────────
+// Tekrar basılırsa kapatır (toggle), main.py davranışı
+function openTopSlot(){
+  if(S.topTab){
+    S.topTab=false; _updateSlotHighlight();
+    setStat('Top slot kapatıldı — Generate ile güncelle', 2000);
+    return;
+  }
+  document.getElementById('ts-pr').value=S.topProj;
+  document.getElementById('ts-z').value=S.topTabZ;
+  showModal('m-tops');
+}
+function applyTopSlot(){
+  S.topProj=parseFloat(document.getElementById('ts-pr').value)||4;
+  S.topTabZ=parseFloat(document.getElementById('ts-z').value)||-2;
+  S.topTab=true; _updateSlotHighlight();
+  setStat(`Top slot aktif — proj ${S.topProj.toFixed(1)} mm`, 2500);
+  closeModal('m-tops');
+  if(S.file) generate();
+}
+function openBotSlot(){
+  if(S.botTab){
+    S.botTab=false; _updateSlotHighlight();
+    setStat('Bottom slot kapatıldı — Generate ile güncelle', 2000);
+    return;
+  }
+  document.getElementById('bs-pr').value=S.botProj;
+  document.getElementById('bs-z').value=S.botTabZ;
+  showModal('m-bots');
+}
+function applyBotSlot(){
+  S.botProj=parseFloat(document.getElementById('bs-pr').value)||4;
+  S.botTabZ=Math.abs(parseFloat(document.getElementById('bs-z').value)||2);
+  S.botTab=true; _updateSlotHighlight();
+  setStat(`Bottom slot aktif — proj ${S.botProj.toFixed(1)} mm`, 2500);
+  closeModal('m-bots');
+  if(S.file) generate();
+}
+
+// ── Color ──────────────────────────────────────────────────────
+function _initColorModal(){
+  const h = +document.getElementById('i-h').value || 45;
+  if(S.bandPos === null) S.bandPos = +(h * 0.5).toFixed(1);
+  if(S.bandH   === null) S.bandH   = +(h * 0.2).toFixed(1);
+
+  document.getElementById('col-wall').value  = S.wc;
+  document.getElementById('col-face').value  = S.fc;
+  document.getElementById('col-cover').value = S.cc;
+  document.getElementById('col-band').value  = S.bc;
+
+  const tb = document.getElementById('band-toggle-bar');
+  tb.className = S.bandOn ? 'on' : 'off';
+  document.getElementById('band-toggle-lbl').textContent = S.bandOn ? 'ON' : 'OFF';
+
+  // Slider: 0=alt, 100=üst → value = pos/h*100
+  document.getElementById('band-pos-sl').value = Math.round(S.bandPos / h * 100);
+  document.getElementById('band-h-input').value = S.bandH;
+
+  _drawMockup();
+}
+
+function onColorInput(key, val){
+  if(key==='wall') { S.wc=val; _updateBandMesh(); }
+  else if(key==='band') { S.bc=val; _updateBandMesh(); }
+  else if(key==='face') { S.fc=val;
+    if(faceObj){ faceObj.material.color.set(val); faceObj.material.needsUpdate=true; } }
+  else if(key==='cover'){ S.cc=val;
+    if(coverObj){ coverObj.material.color.set(val); coverObj.material.needsUpdate=true; } }
+  _drawMockup();
+}
+
+function toggleBand(){
+  S.bandOn = !S.bandOn;
+  const tb = document.getElementById('band-toggle-bar');
+  tb.className = S.bandOn ? 'on' : 'off';
+  document.getElementById('band-toggle-lbl').textContent = S.bandOn ? 'ON' : 'OFF';
+  _updateBandMesh();
+  _drawMockup();
+}
+
+function onBandPosSlider(pct){
+  const h = +document.getElementById('i-h').value || 45;
+  S.bandPos = +(h * pct / 100).toFixed(1);
+  _updateBandMesh();
+  _drawMockup();
+}
+
+function onBandHInput(val){
+  S.bandH = +val;
+  _updateBandMesh();
+  _drawMockup();
+}
+
+function _drawMockup(){
+  const cv = document.getElementById('mock-canvas');
+  if(!cv) return;
+  const cx = cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const h = +document.getElementById('i-h').value || 45;
+
+  // Arka plan
+  cx.fillStyle='#1a1a1a'; cx.fillRect(0,0,W,H);
+
+  // Dış çerçeve (gövde duvarı)
+  const pad=8, wt=10; // duvar kalınlığı px
+  cx.fillStyle='#888'; cx.fillRect(pad,0,W-pad*2,H);
+
+  // İç boşluk (harf içi)
+  cx.fillStyle='#1a1a1a'; cx.fillRect(pad+wt,0,W-pad*2-wt*2,H);
+
+  // Channel body rengi (gövde dolgusu)
+  cx.fillStyle=S.wc; cx.fillRect(pad,0,W-pad*2,H);
+
+  // İç kısım şeffaf göster
+  cx.fillStyle='rgba(0,0,0,0.18)'; cx.fillRect(pad+wt,0,W-pad*2-wt*2,H);
+
+  // Strip bandı
+  if(S.bandOn){
+    const bp = S.bandPos, bh = S.bandH;
+    const yTop  = H - (bp + bh) / h * H;
+    const yBot  = H - bp / h * H;
+    const yT = Math.max(0, Math.min(H, yTop));
+    const yB = Math.max(0, Math.min(H, yBot));
+    cx.fillStyle = S.bc;
+    cx.fillRect(pad, yT, W-pad*2, yB-yT);
+    // kenar çizgisi
+    cx.strokeStyle='rgba(255,255,255,0.3)'; cx.lineWidth=1;
+    cx.strokeRect(pad, yT, W-pad*2, yB-yT);
+  }
+
+  // Dış çerçeve çizgisi
+  cx.strokeStyle='#666'; cx.lineWidth=1;
+  cx.strokeRect(pad+.5,0.5,W-pad*2-1,H-1);
+}
+
+// Sutherland-Hodgman: poligonu tek Z düzlemine göre kırp
+function _clipPolyZ(poly, zVal, keepAbove){
+  const out = [];
+  const n = poly.length;
+  for(let i = 0; i < n; i++){
+    const a = poly[i], b = poly[(i+1) % n];
+    const aIn = keepAbove ? a[2] >= zVal : a[2] <= zVal;
+    const bIn = keepAbove ? b[2] >= zVal : b[2] <= zVal;
+    if(aIn) out.push(a);
+    if(aIn !== bIn){
+      const t = (zVal - a[2]) / (b[2] - a[2]);
+      out.push([a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1]), zVal]);
+    }
+  }
+  return out;
+}
+
+function _updateBandMesh(){
+  if(bandObj){ scene.remove(bandObj); bandObj.geometry.dispose(); bandObj=null; }
+  if(meshObj) meshObj.material.color.set(S.wc);
+  if(!meshObj || !S.bandOn || !(S.bandH > 0)) return;
+
+  const pos = meshObj.geometry.attributes.position;
+  if(!pos) return;
+
+  const bp    = S.bandPos || 0;
+  const bpTop = bp + (S.bandH || 0);
+  const verts = [];
+  const triCount = Math.floor(pos.count / 3);
+
+  for(let t = 0; t < triCount; t++){
+    const i0=t*3, i1=t*3+1, i2=t*3+2;
+    // Üçgen tamamen bant dışıysa atla (hız için erken çıkış)
+    const zMn = Math.min(pos.getZ(i0), pos.getZ(i1), pos.getZ(i2));
+    const zMx = Math.max(pos.getZ(i0), pos.getZ(i1), pos.getZ(i2));
+    if(zMx < bp || zMn > bpTop) continue;
+
+    let poly = [
+      [pos.getX(i0), pos.getY(i0), pos.getZ(i0)],
+      [pos.getX(i1), pos.getY(i1), pos.getZ(i1)],
+      [pos.getX(i2), pos.getY(i2), pos.getZ(i2)],
+    ];
+    poly = _clipPolyZ(poly, bp,    true);   // z >= bp
+    if(poly.length < 3) continue;
+    poly = _clipPolyZ(poly, bpTop, false);  // z <= bpTop
+    if(poly.length < 3) continue;
+
+    // Fan triangülasyonu
+    for(let k = 1; k < poly.length-1; k++){
+      verts.push(...poly[0], ...poly[k], ...poly[k+1]);
+    }
+  }
+  if(verts.length === 0) return;
+
+  const bandGeo = new THREE.BufferGeometry();
+  bandGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  bandGeo.computeVertexNormals();
+
+  bandObj = new THREE.Mesh(bandGeo, new THREE.MeshPhongMaterial({
+    color: new THREE.Color(S.bc),
+    specular: 0x226688, shininess: 60,
+    side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  }));
+  scene.add(bandObj);
+}
+
+// ── Profiles ───────────────────────────────────────────────────
+function loadProfs(){
+  try{ S.profs = JSON.parse(localStorage.getItem('hx_profs')||'{}'); }catch(e){ S.profs={}; }
+  const el = document.getElementById('prf-list'); el.innerHTML='';
+  Object.keys(S.profs).sort().forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; el.appendChild(o); });
+}
+function captureState(){
+  const p = params();
+  // Renkler
+  p._wc = S.wc; p._bc = S.bc; p._fc = S.fc; p._cc = S.cc;
+  // Band/strip
+  p._bandOn  = S.bandOn;
+  p._bandPos = S.bandPos;
+  p._bandH   = S.bandH;
+  // Cover
+  p._covOn  = S.covOn;
+  p._cvCt   = document.getElementById('cv-ct').value;
+  p._cvWh   = document.getElementById('cv-wh').value;
+  p._cvCl   = document.getElementById('cv-cl').value;
+  p._cvWt   = document.getElementById('cv-wt').value;
+  // Fill
+  p._fillCell = document.getElementById('fill-cell').value;
+  p._fillWall = document.getElementById('fill-wall').value;
+  p._fillBrd  = document.getElementById('fill-brd').value;
+  // Tırnak slotları
+  p._topTab  = S.topTab;  p._botTab  = S.botTab;
+  p._topProj = S.topProj; p._botProj = S.botProj;
+  p._topTabZ = S.topTabZ; p._botTabZ = S.botTabZ;
+  // Mirror
+  p._mirOn = S.mirOn;
+  // Offsets
+  p._plexOffset = S.plexOffset;
+  p._foamOffset = S.foamOffset;
+  return p;
+}
+function saveProf(){
+  const n=(document.getElementById('prf-name').value||'').trim();
+  if(!n){ toast('Profil adı girin','err'); return; }
+  S.profs[n]=captureState(); localStorage.setItem('hx_profs',JSON.stringify(S.profs));
+  loadProfs(); toast('Profil kaydedildi: '+n,'ok');
+}
+function applyProf(){
+  const sel=document.getElementById('prf-list').value;
+  if(!sel||!S.profs[sel]) return;
+  const p=S.profs[sel];
+  try{
+    // ── Sayısal parametreler (DOM input) ─────────────────────────
+    const _set = (id, v) => { if(v!=null){ const e=document.getElementById(id); if(e) e.value=v; }};
+    _set('i-w',        p.wall_mm);
+    _set('i-h',        p.height_mm);
+    _set('i-arc',      p.arc_sm);
+    _set('i-rc',       p.round_c);
+    _set('i-simp',     p.simplify);
+    _set('i-fp',       p.face_thickness);  if(p.face_thickness!=null) S.ft=+p.face_thickness;
+    _set('fill-cell',  p._fillCell ?? p.face_fill_cell);
+    _set('fill-wall',  p._fillWall ?? p.face_fill_wall);
+    _set('fill-brd',   p._fillBrd  ?? p.face_fill_border);
+    _set('cv-ct',      p._cvCt ?? p.cover_ct);
+    _set('cv-wh',      p._cvWh ?? p.cover_wh);
+    _set('cv-cl',      p._cvCl ?? p.cover_clearance);
+    _set('cv-wt',      p._cvWt ?? p.cover_wt);
+    // ── S state ──────────────────────────────────────────────────
+    if(p.wall_taper !=null) S.wallTaper = +p.wall_taper;
+    if(p.wall_type  !=null) S.wt  = +p.wall_type;
+    if(p.face_mode  !=null) S.fm  = +p.face_mode;
+    if(p.face_fill  !=null) S.fi  = +p.face_fill;
+    if(p.face_fill_solid_pos!=null) S.sp = +p.face_fill_solid_pos;
+    // Band/strip
+    if(p._bandOn  != null) S.bandOn  = p._bandOn;
+    if(p._bandPos != null){ S.bandPos = +p._bandPos; }
+    else if(p.band_pos != null){ S.bandPos = +p.band_pos; }
+    if(p._bandH   != null){ S.bandH   = +p._bandH; }
+    else if(p.band_h != null){ S.bandH = +p.band_h; }
+    // Band slider UI
+    if(S.bandPos != null && S.bandH != null){
+      const h = +document.getElementById('i-h').value || 45;
+      const sl = document.getElementById('band-pos-sl');
+      const hi = document.getElementById('band-h-input');
+      if(sl) sl.value = Math.round(S.bandPos / h * 100);
+      if(hi) hi.value = S.bandH;
+    }
+    // Cover
+    if(p._covOn != null) S.covOn = p._covOn;
+    // Tırnak slotları
+    if(p._topTab  != null) S.topTab  = p._topTab;  else if(p.top_tab!=null) S.topTab=!!p.top_tab;
+    if(p._botTab  != null) S.botTab  = p._botTab;  else if(p.bot_tab!=null) S.botTab=!!p.bot_tab;
+    if(p._topProj != null) S.topProj = +p._topProj; else if(p.top_proj!=null) S.topProj=+p.top_proj;
+    if(p._botProj != null) S.botProj = +p._botProj; else if(p.bot_proj!=null) S.botProj=+p.bot_proj;
+    if(p._topTabZ != null) S.topTabZ = +p._topTabZ; else if(p.top_tab_z!=null) S.topTabZ=+p.top_tab_z;
+    if(p._botTabZ != null) S.botTabZ = +p._botTabZ; else if(p.bot_tab_z!=null) S.botTabZ=+p.bot_tab_z;
+    // Mirror
+    if(p._mirOn != null) S.mirOn = p._mirOn;
+    else if(p.mirror_x!=null) S.mirOn = +p.mirror_x===1;
+    // Offsets
+    if(p._plexOffset != null) S.plexOffset = +p._plexOffset;
+    if(p._foamOffset != null) S.foamOffset = +p._foamOffset;
+    // Renkler
+    if(p._wc){ S.wc=p._wc; const e=document.getElementById('col-wall'); if(e) e.value=p._wc; }
+    if(p._bc){ S.bc=p._bc; const e=document.getElementById('col-band'); if(e) e.value=p._bc; }
+    if(p._fc){ S.fc=p._fc; const e=document.getElementById('col-face'); if(e) e.value=p._fc; }
+    if(p._cc){ S.cc=p._cc; const e=document.getElementById('col-cover');if(e) e.value=p._cc; }
+    // ── Tüm buton highlight'larını güncelle ──────────────────────
+    _applyUIState();
+    // ── 3D görsel güncelle ───────────────────────────────────────
+    _drawMockup();
+    _updateBandMesh();
+    if(meshObj)  meshObj.material.color.set(S.wc);
+    if(faceObj)  faceObj.material.color.set(S.fc);
+    if(coverObj) coverObj.material.color.set(S.cc);
+  }catch(err){
+    toast('Profil yükle hatası: '+err.message,'err');
+    console.error('[applyProf]', err);
+    return;
+  }
+  closeModal('m-prof');
+  toast('Profil yüklendi: '+sel,'ok');
+  if(S.file){
+    generate();
+    if(S.covOn) setTimeout(()=>_buildCover(), 500);
+  }
+}
+function delProf(){
+  const sel=document.getElementById('prf-list').value; if(!sel) return;
+  if(!confirm('Sil: '+sel)) return;
+  delete S.profs[sel]; localStorage.setItem('hx_profs',JSON.stringify(S.profs)); loadProfs();
+}
+
+// ── Params — mirrors _collect_settings ────────────────────────
+function params(){
+  // face_thickness: S.ft ile senkron tut (i-fp inputu ile)
+  S.ft = +document.getElementById('i-fp').value || 3.0;
+  return {
+    wall_mm:         +document.getElementById('i-w').value   ||5,
+    height_mm:       +document.getElementById('i-h').value   ||45,
+    arc_sm:          +document.getElementById('i-arc').value ||8,
+    round_c:         +document.getElementById('i-rc').value  ||1,
+    simplify:        +document.getElementById('i-simp').value||0.05,
+    face_mode:       S.fm ?? 1,
+    face_thickness:  S.ft,
+    wall_type:       S.wt ?? 0,
+    wall_taper:      S.wallTaper||13.81,
+    face_fill:       S.fi,
+    face_fill_cell:  +document.getElementById('fill-cell').value||8,
+    face_fill_wall:  +document.getElementById('fill-wall').value||1.6,
+    face_fill_solid_pos: S.sp,
+    face_fill_border:+document.getElementById('fill-brd').value||1.5,
+    cover_ct:        +document.getElementById('cv-ct').value ||2,
+    cover_wh:        +document.getElementById('cv-wh').value ||15,
+    cover_clearance: +document.getElementById('cv-cl').value ||0.05,
+    cover_wt:        +document.getElementById('cv-wt').value ||3,
+    include_band:    S.bandOn ? '1' : '0',
+    band_pos:        S.bandPos || 0,
+    band_h:          S.bandH   || 0,
+    plexiglas_offset: S.plexOffset ?? -0.5,
+    foam_offset:      S.foamOffset ?? 0.0,
+    mirror_x:        S.mirOn ? '1' : '0',
+    mirror_y:        '0',
+    top_tab:         S.topTab ? 'true' : 'false',
+    bot_tab:         S.botTab ? 'true' : 'false',
+    top_proj:        S.topProj||4,
+    bot_proj:        S.botProj||4,
+    top_tab_z:       S.topTabZ||-2,
+    bot_tab_z:       S.botTabZ||2,
+  };
+}
+function buildFD(output){
+  const p=params(), fd=new FormData();
+  fd.append('file',S.file);
+  fd.append('output',output);
+  Object.entries(p).forEach(([k,v]) => fd.append(k,v));
+  // combined_3mf → cover dahil et (cover oluşturulmuşsa)
+  if(output==='combined_3mf' && S.covOn) fd.append('include_cover','1');
+  return fd;
+}
+
+// ── Generate ───────────────────────────────────────────────────
+async function generate(){
+  if(!S.file){ toast('Önce DXF yükleyin','err'); return; }
+  setSpin(true,'Geometri hesaplanıyor…');
+  document.getElementById('b-gen').disabled=true;
+  const t0=performance.now();
+  try{
+    // Wall + face tek istekte
+    const r = await fetch(`${API}/api/process`,{method:'POST',body:buildFD('wall_preview')});
+    if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
+    const data = await r.json();
+    const faces = data.wall_faces || '?';
+    const dt = ((performance.now()-t0)/1000).toFixed(2);
+    clearContour(); clearFace();
+    // Wall STL
+    const wallArr = Uint8Array.from(atob(data.wall), c=>c.charCodeAt(0));
+    loadSTL(new Blob([wallArr]));
+    // Face STL
+    if(data.face){
+      const faceArr = Uint8Array.from(atob(data.face), c=>c.charCodeAt(0));
+      loadFaceSTL(new Blob([faceArr]));
+      addObj('face_0', (S.file?.name||'Model')+' • Yüz');
+    }
+    S.ready=true;
+    document.getElementById('empty-state').style.display='none';
+    document.getElementById('vp-stats').style.display='block';
+    document.getElementById('vp-stats').textContent=`Faces: ${faces}`;
+    document.getElementById('sb-t').textContent=faces+' üçgen';
+    document.getElementById('sb-tm').textContent=dt+'s';
+    setStat('✓ Model hazır', 3000);
+    addObj('body_0', (S.file?.name||'Model')+' • Duvar');
+    toast('Generate tamamlandı ✓','ok');
+  }catch(e){
+    const isOffline = e.message.includes('fetch') || e.message.includes('Failed') || e.message.includes('NetworkError');
+    const msg = isOffline
+      ? 'API bağlantı hatası — sunucu açık mı? Detay: ' + e.message
+      : 'Hata: ' + e.message;
+    toast(msg, 'err');
+    setStat('⚠ ' + e.message, 8000);
+    console.error('[Generate Error]', e.message, e);
+  }finally{
+    setSpin(false);
+    document.getElementById('b-gen').disabled=false;
+  }
+}
+
+// ── Export ─────────────────────────────────────────────────────
+async function _downloadBlob(blob, fname){
+  // Modern Chrome: gerçek "Farklı Kaydet" diyalogu
+  if(window.showSaveFilePicker){
+    try{
+      const ext = fname.split('.').pop().toLowerCase();
+      const mimeMap = {stl:'model/stl', dxf:'application/dxf', '3mf':'model/3mf'};
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types:[{description:'Export File', accept:{[mimeMap[ext]||'application/octet-stream']:['.'+ext]}}]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    }catch(e){
+      if(e.name==='AbortError') return; // kullanıcı iptal etti
+      // showSaveFilePicker başarısız → aşağıdaki fallback'e geç
+    }
+  }
+  // Fallback: klasik anchor download
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.style.display='none';
+  a.href=url; a.download=fname;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} URL.revokeObjectURL(url); },10000);
+}
+
+function doFoamExport(){
+  closeModal('m-foam');
+  const off = +document.getElementById('foam-off').value || 0;
+  const cr  = +document.getElementById('foam-cr').value  || 0;
+  S.foamOffset = off;
+  doExp('foam_dxf', 'harfex_foam.dxf');
+}
+
+function doPlexExport(){
+  closeModal('m-plex');
+  const off = +document.getElementById('plex-off').value;
+  const cr  = +document.getElementById('plex-cr').value  || 0;
+  S.plexOffset = off;
+  doExp('plexiglas_dxf', 'harfex_plexiglas.dxf');
+}
+
+async function doExp(out, fname){
+  if(!S.file){ toast('Önce DXF yükleyin','err'); return; }
+
+  setSpin(true,'Dosya hazırlanıyor…');
+  try{
+    let r;
+    if(out === 'cover_stl'){
+      if(!S.covOn){ toast('Önce Back Cover oluşturun','err'); setSpin(false); return; }
+      const fd=new FormData();
+      fd.append('file', S.file);
+      const p=params();
+      fd.append('wall_mm',         p.wall_mm);
+      fd.append('height_mm',       p.height_mm);
+      fd.append('wall_type',       p.wall_type);
+      fd.append('wall_taper',      p.wall_taper);
+      fd.append('arc_sm',          p.arc_sm);
+      fd.append('round_c',         p.round_c);
+      fd.append('simplify',        p.simplify);
+      fd.append('mirror_x',        p.mirror_x);
+      fd.append('cover_ct',        document.getElementById('cv-ct').value||2);
+      fd.append('cover_wh',        document.getElementById('cv-wh').value||15);
+      fd.append('cover_clearance', document.getElementById('cv-cl').value||0.05);
+      fd.append('cover_wt',        document.getElementById('cv-wt').value||3);
+      r = await fetch(`${API}/api/cover`, {method:'POST', body:fd});
+    } else {
+      r = await fetch(`${API}/api/process`, {method:'POST', body:buildFD(out)});
+    }
+    if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
+    const blob=await r.blob();
+    _downloadBlob(blob, fname);
+    toast(fname+' indirildi ✓','ok');
+    setStat(fname+' hazır', 3000);
+  }catch(e){ toast('Export hatası: '+e.message,'err'); }
+  finally{ setSpin(false); }
+}
+
+function doSliceMenu(){
+  if(!S.file){ toast('Önce DXF yükleyin','err'); return; }
+  const c=prompt('Dışa aktar:\n1 → Wall STL\n2 → Face STL\n3 → Cover STL\n4 → Pleksiglas DXF\n\nNumara girin:','1');
+  if(!c) return;
+  if(c==='3'){
+    // Cover her zaman ayrı export — S.ready gerekmez
+    doExp('cover_stl','harfex_cover.stl');
+    return;
+  }
+  if(!S.ready){ toast('Önce Generate 3D yapın','err'); return; }
+  const m={'1':['wall_stl','harfex_wall.stl'],'2':['face_stl','harfex_face.stl'],'4':['plexiglas_dxf','harfex_plexiglas.dxf']};
+  if(m[c]) doExp(...m[c]);
+}
+
+// ── Objects ────────────────────────────────────────────────────
+const _objs={};
+function addObj(key,lbl){
+  _objs[key]={lbl,vis:true};
+  const lst=document.getElementById('obj-list'); lst.innerHTML='';
+  const sortK=k => k.startsWith('body_')?0:k.startsWith('face_')?1:k.startsWith('cover_')?2:3;
+  Object.entries(_objs).sort(([a],[b])=>sortK(a)-sortK(b)).forEach(([k,o]) => {
+    const row=document.createElement('div'); row.className='obj-row';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=o.vis;
+    const lbl2=document.createElement('label'); lbl2.textContent=o.lbl;
+    cb.onchange=(()=>{
+      const _k=k;
+      return function(){
+        o.vis=cb.checked;
+        if(_k.startsWith('cover_')){ if(coverObj) coverObj.visible=cb.checked; }
+        else if(_k.startsWith('face_')){ if(faceObj) faceObj.visible=cb.checked; }
+        else { if(meshObj) meshObj.visible=cb.checked; }
+      };
+    })();
+    row.appendChild(cb); row.appendChild(lbl2); lst.appendChild(row);
+  });
+  document.getElementById('pi').style.minHeight=(820+8+44+Object.keys(_objs).length*26)+'px';
+}
+
+// ── Display mode ───────────────────────────────────────────────
+function setDM(m){
+  S.dm=m;
+  if(meshObj) meshObj.material.wireframe = m==='wireframe';
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+let _stTimer=null;
+function setStat(msg,ms=0){
+  const el=document.getElementById('status-lbl');
+  el.textContent=msg; el.style.display='block';
+  clearTimeout(_stTimer);
+  if(ms>0) _stTimer=setTimeout(()=>el.style.display='none',ms);
+}
+function setSpin(on,lbl){
+  document.getElementById('spinner').classList.toggle('on',on);
+  if(lbl) document.getElementById('slbl').textContent=lbl;
+}
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=type; t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3500);
+}
+function showModal(id){
+  if(id==='m-fill')  { _fi=S.fi; _sp=S.sp; selFill(S.fi); setSP(S.sp); }
+  if(id==='m-color') _initColorModal();
+  if(id==='m-prof')  loadProfs();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.mo').forEach(el => el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.mo.open').forEach(el=>el.classList.remove('open')); });
+
+// ── Three.js ───────────────────────────────────────────────────
+const canvas=document.getElementById('three-canvas');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0xd2d5da, 1);
+} catch(e) {
+  console.error('WebGL init failed:', e);
+  document.getElementById('cvp').innerHTML = '<div style="color:#f55;padding:20px;">WebGL desteklenmiyor.</div>';
+}
+renderer.setClearColor(0xd2d5da);
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(45,1,0.1,5000);
+cam.position.set(0,-200,120);
+const ctrl=new THREE.OrbitControls(cam,canvas);
+ctrl.enableDamping=true; ctrl.dampingFactor=0.08;
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const d1=new THREE.DirectionalLight(0xffffff,0.8); d1.position.set(1,-1,1); scene.add(d1);
+const d2=new THREE.DirectionalLight(0x88eeff,0.25); d2.position.set(-1,1,-1); scene.add(d2);
+let grid=new THREE.GridHelper(700,28,0x888890,0x888890); grid.rotation.x=Math.PI/2;  scene.add(grid);
+function resizeGrid(size){
+  scene.remove(grid); grid.geometry.dispose();
+  const s=Math.ceil(size*1.6/50)*50;
+  const divs=Math.min(Math.max(Math.round(s/20),10),60);
+  grid=new THREE.GridHelper(s,divs,0x888890,0x888890); grid.rotation.x=Math.PI/2;  scene.add(grid);
+}
+scene.add(new THREE.AxesHelper(80));
+let meshObj=null, faceObj=null, coverObj=null, bandObj=null;
+function clearFace(){
+  if(faceObj){ scene.remove(faceObj); faceObj.geometry.dispose(); faceObj=null; }
+}
+function clearCover(){
+  if(coverObj){ scene.remove(coverObj); coverObj.geometry.dispose(); coverObj=null; }
+}
+function loadSTL(blob){
+  const url=URL.createObjectURL(blob);
+  new THREE.STLLoader().load(url, geo=>{
+    URL.revokeObjectURL(url);
+    if(meshObj){ scene.remove(meshObj); meshObj.geometry.dispose(); }
+    if(bandObj){ scene.remove(bandObj); bandObj.geometry.dispose(); bandObj=null; }
+    geo.computeVertexNormals();
+    meshObj=new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
+      color: new THREE.Color(S.wc), specular:0x226688, shininess:60,
+      side:THREE.DoubleSide, wireframe:S.dm==='wireframe',
+    }));
+    scene.add(meshObj);
+    _updateBandMesh();
+    geo.computeBoundingBox();
+    const cen=new THREE.Vector3(); geo.boundingBox.getCenter(cen);
+    const sz=new THREE.Vector3();  geo.boundingBox.getSize(sz);
+    const mx=Math.max(sz.x,sz.y,sz.z,1);
+    cam.near = mx * 0.001; cam.far = mx * 200;
+    cam.updateProjectionMatrix();
+    cam.position.set(cen.x, cen.y - mx*1.8, cen.z + mx*1.2);
+    ctrl.target.copy(cen); ctrl.update();
+    resizeGrid(mx);
+  });
+}
+function loadFaceSTL(blob){
+  const url=URL.createObjectURL(blob);
+  new THREE.STLLoader().load(url, geo=>{
+    URL.revokeObjectURL(url);
+    clearFace();
+    geo.computeVertexNormals();
+    faceObj=new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
+      color:new THREE.Color(S.fc), specular:0x226688, shininess:60,
+      side:THREE.DoubleSide, wireframe:S.dm==='wireframe',
+    }));
+    scene.add(faceObj);
+  });
+}
+function loadCoverSTL(blob){
+  const url=URL.createObjectURL(blob);
+  new THREE.STLLoader().load(url, geo=>{
+    URL.revokeObjectURL(url);
+    clearCover();
+    geo.computeVertexNormals();
+    // main.py: kapak harfin arkasında, gri renk, Y ekseninde offset ile
+    coverObj=new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
+      color:new THREE.Color(S.cc), specular:0x444444, shininess:40,
+      side:THREE.DoubleSide, wireframe:S.dm==='wireframe',
+    }));
+    // Kapağı ana gövdenin arkasına (pozitif Y), 5mm boşlukla yerleştir
+    if(meshObj){
+      const bodyBox=new THREE.Box3().setFromObject(meshObj);
+      const bodyCen=new THREE.Vector3(); bodyBox.getCenter(bodyCen);
+      // Kapağın kendi bounding box'ını hesapla (pozisyon=0'dayken)
+      geo.computeBoundingBox();
+      const coverMinY = geo.boundingBox.min.y;
+      // Kapağın min.y'si bodyBox.max.y + 5 olacak şekilde pozisyonla
+      const offsetY = bodyBox.max.y + 5 - coverMinY;
+      coverObj.position.set(bodyCen.x, offsetY, 0);
+    }
+    scene.add(coverObj);
+    addObj('cover_0','Back Cover');
+  });
+}
+function resize(){
+  if(!renderer) return;
+  const cvp = document.getElementById('cvp');
+  const w = cvp.clientWidth  || cvp.offsetWidth;
+  const h = cvp.clientHeight || cvp.offsetHeight;
+  if(w > 0 && h > 0){
+    // false = DON'T change CSS size (CSS handles it via width/height:100%)
+    renderer.setSize(w, h, false);
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+  }
+}
+window.addEventListener('resize', resize);
+// window.load garantisi — tam layout sonrası
+window.addEventListener('load', () => { resize(); setTimeout(resize, 100); });
+// ResizeObserver — container boyutu değişince güncelle
+if(typeof ResizeObserver !== 'undefined'){
+  new ResizeObserver(() => resize()).observe(document.getElementById('cvp'));
+}
+
+(function loop(){
+  requestAnimationFrame(loop);
+  ctrl.update();
+  if(renderer) renderer.render(scene, cam);
+})();
+
+// ── TR/EN ──────────────────────────────────────────────────────
+const T={
+  tr:{
+    'cr-lbl':'Kredi','buy-btn':'Kredi Al',
+    'obj-hdr':'Nesneler',
+    'vp-wire':'Kafes','vp-shaded':'Gölgeli','vp-render':'Render',
+    'vp-group':'Grupla','vp-ungroup':'Grubu Boz',
+    'es-text':'DXF dosyası yükle ve Generate 3D\'ye bas','es-sub':'DXF · SVG · EPS',
+    'spin-lbl':'Geometri hesaplanıyor…',
+    'vp-info':'Sol sürükle: döndür  ·  Scroll: zoom  ·  Sağ sürükle: kaydır',
+    'fill-hdr':'Yüzey Dolgu Deseni',
+    'fdesc-0':'Dolu yüzey — boşluksuz, maksimum mukavemet',
+    'fdesc-1':'Bal peteği — altıgen hücreler, hafif ve sağlam',
+    'fdesc-2':'Kafes — kare delikler, düzgün yoğunluk',
+    'fdesc-3':'Çizgiler — dikey şeritler, hızlı baskı',
+    'fill-cell':'Hücre boyutu (mm):','fill-wlbl':'Petek duvarı (mm):',
+    'fill-brd':'Kenar payı (mm):','fill-of':'Sadece yüz plakası (duvar olmadan)',
+    'fill-posH':'Koruyucu solid katmanlar (0.8 mm — dış mekân):',
+    'sp0':'Kapalı','sp1':'Arka yüz','sp2':'Ön yüz','sp3':'Her ikisi',
+    'fill-ok':'Uygula','fill-ca':'İptal',
+    'cv-hdr':'Back Cover Ayarları','cv-ct':'Taban kalınlığı:','cv-wh':'İç duvar yüksekliği:',
+    'cv-cl':'Boşluk / Clearance:','cv-wt':'Tab duvar kalınlığı:',
+    'cv-rm':'Back Cover\'ı Kaldır','cv-ok':'Tamam','cv-ca':'İptal',
+    'ts-hdr':'Üst Tırnak Slotu','ts-proj':'Tırnak genişliği / proj (mm):',
+    'ts-z':'Üst kenardan mesafe (negatif mm):','ts-ok':'Uygula','ts-ca':'İptal',
+    'bs-hdr':'Alt Tırnak Slotu','bs-proj':'Tırnak genişliği / proj (mm):',
+    'bs-z':'Alt kenardan mesafe (negatif mm):','bs-ok':'Uygula','bs-ca':'İptal',
+    'col-hdr':'Renk Ata — Filament Renkleri',
+    'col-w':'Duvar Rengi:','col-f':'Yüz Rengi:','col-ok':'Uygula','col-ca':'İptal',
+    'prf-hdr':'Profil Listesi','prf-ap':'▶ Uygula','prf-sv':'💾 Kaydet',
+    'prf-dl':'✕ Sil','prf-cl':'Kapat',
+  },
+  en:{
+    'cr-lbl':'Credits','buy-btn':'Buy Credits',
+    'obj-hdr':'Objects',
+    'vp-wire':'Wireframe','vp-shaded':'Shaded','vp-render':'Rendered',
+    'vp-group':'Group','vp-ungroup':'Ungroup',
+    'es-text':'Upload a DXF file and click Generate 3D','es-sub':'DXF · SVG · EPS',
+    'spin-lbl':'Computing geometry…',
+    'vp-info':'Left drag: rotate  ·  Scroll: zoom  ·  Right drag: pan',
+    'fill-hdr':'Face Fill Pattern',
+    'fdesc-0':'Solid surface — no voids, maximum strength',
+    'fdesc-1':'Honeycomb — hexagonal cells, light and strong',
+    'fdesc-2':'Grid — square holes, even density',
+    'fdesc-3':'Lines — vertical strips, fast print',
+    'fill-cell':'Cell size (mm):','fill-wlbl':'Wall thickness (mm):',
+    'fill-brd':'Border margin (mm):','fill-of':'Face plate only (no wall)',
+    'fill-posH':'Solid protective layers (0.8 mm — outdoor):',
+    'sp0':'Off','sp1':'Rear face','sp2':'Front face','sp3':'Both',
+    'fill-ok':'Apply','fill-ca':'Cancel',
+    'cv-hdr':'Back Cover Settings','cv-ct':'Base thickness:','cv-wh':'Inner wall height:',
+    'cv-cl':'Clearance:','cv-wt':'Tab wall thickness:',
+    'cv-rm':'Remove Back Cover','cv-ok':'OK','cv-ca':'Cancel',
+    'ts-hdr':'Top Slot','ts-proj':'Nail width / proj (mm):',
+    'ts-z':'Distance from top edge (negative mm):','ts-ok':'Apply','ts-ca':'Cancel',
+    'bs-hdr':'Bottom Slot','bs-proj':'Nail width / proj (mm):',
+    'bs-z':'Distance from bottom (negative mm):','bs-ok':'Apply','bs-ca':'Cancel',
+    'col-hdr':'Assign Colors — Filament Colors',
+    'col-w':'Wall Color:','col-f':'Face Color:','col-ok':'Apply','col-ca':'Cancel',
+    'prf-hdr':'Profile List','prf-ap':'▶ Apply','prf-sv':'💾 Save',
+    'prf-dl':'✕ Delete','prf-cl':'Close',
+  }
+};
+function toggleLang(){
+  S.lang = S.lang==='tr'?'en':'tr';
+  document.getElementById('lang-btn').textContent = S.lang==='tr'?'EN':'TR';
+  const t=T[S.lang];
+  document.querySelectorAll('[data-key]').forEach(el=>{ if(t[el.dataset.key]) el.textContent=t[el.dataset.key]; });
+}
+
+// ── Init — program açılışında hiçbir buton aktif değil (main.py davranışı)
+// Butonlar ancak DXF yüklenince _applyUIState() ile lit edilir
+document.getElementById('pi').style.minHeight='860px';
+['i-arc','i-rc','i-simp'].forEach(id =>
+  document.getElementById(id).addEventListener('input', _onContourParam));
+// i-fp değişince S.ft güncelle (face thickness input)
+document.getElementById('i-fp').addEventListener('input', ()=>{
+  S.ft = parseFloat(document.getElementById('i-fp').value)||3.0;
+});
+</script>
+</body>
+</html>

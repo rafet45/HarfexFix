@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+alpha182/build/
+alpha182/dist/
+alpha182/OrcaSlicer_Windows_V2.3.2_portable/
