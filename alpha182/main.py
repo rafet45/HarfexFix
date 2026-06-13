@@ -23,7 +23,7 @@ from harfex_engine import (
     StageTimer, _tic, _toc,
     GEOMETRY_EXECUTOR, HAS_EARCUT, HAS_SHAPELY,
     Polygon, MultiPolygon, LineString,
-    unary_union, polygonize, make_valid,
+    unary_union, polygonize, make_valid, prep,
     _ACILI_PROFILE, _KAVISLI_PROFILE,
     _ALT_TIRNAK_PROFILE, _ALT_TIRNAK_ASPECT,
     _UST_TIRNAK_PROFILE, _UST_TIRNAK_ASPECT,
@@ -1729,16 +1729,23 @@ class Viewport(QWidget):
             # index here, so parent[i] < i always — no cycles possible.
             rp.sort(key=lambda x: x["area"], reverse=True)
             n = len(rp)
+            for r in rp:
+                r["bounds"] = r["poly"].bounds
+                r["prep"] = prep(r["poly"])
             parent = [-1] * n
             for i in range(n):
                 try:
                     pt = rp[i]["poly"].representative_point()
                 except Exception:
                     continue
+                px, py = pt.x, pt.y
                 best_j, best_area = -1, None
                 for j in range(i):
+                    bx0, by0, bx1, by1 = rp[j]["bounds"]
+                    if px < bx0 or px > bx1 or py < by0 or py > by1:
+                        continue
                     try:
-                        if rp[j]["poly"].contains(pt):
+                        if rp[j]["prep"].contains(pt):
                             if best_area is None or rp[j]["area"] < best_area:
                                 best_area, best_j = rp[j]["area"], j
                     except Exception:

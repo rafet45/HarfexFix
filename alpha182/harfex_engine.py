@@ -58,9 +58,10 @@ try:
     from shapely.geometry import Polygon, MultiPolygon, LineString
     from shapely.ops import unary_union, polygonize
     from shapely.validation import make_valid
+    from shapely.prepared import prep
     HAS_SHAPELY = True
 except Exception:
-    Polygon = MultiPolygon = LineString = unary_union = polygonize = make_valid = None
+    Polygon = MultiPolygon = LineString = unary_union = polygonize = make_valid = prep = None
     HAS_SHAPELY = False
 
 
@@ -666,7 +667,7 @@ class DXFImporter:
             elif t == "SPLINE":
                 pts = []
                 try:
-                    for p in e.construction_tool().flattening(distance=0.2, segments=128):
+                    for p in e.construction_tool().flattening(distance=0.2, segments=16):
                         pts.append((float(p[0]), float(p[1])))
                 except Exception:
                     pass
@@ -734,8 +735,16 @@ class SVGImporter:
         def to_mm(pt):
             return (pt.x * scale, -pt.y * scale)
 
+        def approx_length(seg):
+            """seg.length() üzerindeki maliyetli adaptif alt-bölmeyi önlemek için
+            kontrol noktaları arası mesafelerin toplamıyla hızlı bir üst sınır hesaplar."""
+            pts = [p for p in (getattr(seg, a, None)
+                                for a in ("start", "control1", "control2", "control", "end"))
+                   if p is not None]
+            return sum(abs(b - a) for a, b in zip(pts[:-1], pts[1:]))
+
         def flatten_curve(seg):
-            length = seg.length()
+            length = approx_length(seg)
             n = max(4, min(64, int(length / 1.5)))
             return [to_mm(seg.point(i / n)) for i in range(1, n + 1)]
 
