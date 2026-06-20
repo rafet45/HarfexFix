@@ -61,6 +61,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 .ob:hover{background:rgba(255,255,255,.13);border-radius:5px;}
 .ob:active{background:rgba(0,0,0,.25);border-radius:5px;}
 .ob.on{background:rgba(19,217,232,.18);border-radius:4px;box-shadow:inset 0 0 0 1px rgba(19,217,232,.5);}
+#b-mir{background:transparent!important;border:none!important;box-shadow:none!important;}
 
 /* Inputs */
 .pi{
@@ -89,9 +90,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 .cr-box::-webkit-color-swatch{border:none;border-radius:4px;}
 .cr-box::-moz-color-swatch{border:none;border-radius:4px;}
 .cr-section{margin-bottom:14px;}
-#band-toggle-bar{height:14px;border-radius:4px 4px 0 0;cursor:pointer;transition:background .2s;user-select:none;}
+#band-toggle-bar{height:28px;border-radius:6px 6px 0 0;cursor:pointer;transition:background .2s;user-select:none;display:flex;align-items:center;justify-content:center;}
 #band-toggle-bar.on{background:#3a9e44;}
-#band-toggle-bar.off{background:#444;}
+#band-toggle-bar.off{background:#555;}
 #mock-wrap{position:relative;display:inline-flex;align-items:center;gap:6px;}
 #band-pos-sl{writing-mode:vertical-lr;direction:rtl;-webkit-appearance:slider-vertical;appearance:slider-vertical;height:220px;width:18px;accent-color:#aaa;cursor:pointer;background:none;border:none;}
 #mock-canvas{border-radius:0 0 4px 4px;cursor:default;}
@@ -190,88 +191,116 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
   <div id="left">
     <div id="pi">
 
-      <!-- SVG arkaplan — desktop ile birebir 406×820 -->
-      <img id="bg-svg" src="butonlar.svg" alt="">
+      <!-- SVG arkaplan: üst kısım (0-290px) sabit, alt kısım 15px aşağı kaydırılmış -->
+      <img id="bg-svg" src="butonlar.svg?v=9" style="position:absolute;top:0;left:0;width:406px;height:820px;clip-path:inset(0 0 530px 0);pointer-events:none;" alt="">
+      <img src="butonlar.svg?v=9" style="position:absolute;top:15px;left:0;width:406px;height:820px;clip-path:inset(290px 0 0 0);pointer-events:none;" alt="">
 
-      <!-- ═══ TRANSPARENT BUTTON OVERLAYS ═══ -->
-
-      <!-- Import: x=31 y=118 w=42 h=40 -->
-      <button class="ob" style="left:31px;top:118px;width:42px;height:40px;" title="DXF/SVG Aç"
-        onclick="document.getElementById('fi').click()"></button>
+      <!-- DXF-SVG Upload strip -->
+      <img src="dxf svg up.svg" style="position:absolute;top:0;left:0;width:406px;pointer-events:none;" alt="">
       <input type="file" id="fi" accept=".dxf,.svg,.eps" style="display:none" onchange="onFile(event)">
+      <button class="ob" style="left:0;top:0;width:406px;height:68px;" title="DXF/SVG Aç" onclick="document.getElementById('fi').click()"></button>
 
-      <!-- Mirror: x=92 y=118 w=42 h=40 -->
-      <button class="ob" id="b-mir" style="left:92px;top:118px;width:42px;height:40px;" title="Mirror" onclick="toggleMirror()">
-        <!-- SVG'deki F'yi örter ve döndürür -->
-        <div style="position:absolute;left:5px;top:3px;width:32px;height:30px;background:#E6E6E6;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-          <span id="mir-f" style="font-weight:bold;font-size:20px;color:#666;font-family:Arial,sans-serif;display:inline-block;transition:transform .15s;">F</span>
-        </div>
-      </button>
+      <!-- Import/Mirror: clip trick -->
+      <div style="position:absolute;left:0;top:68px;width:160px;height:77px;background:#333333;pointer-events:none;"></div>
+      <div style="position:absolute;left:0;top:45px;width:160px;height:90px;overflow:hidden;pointer-events:none;">
+        <img src="butonlar.svg?v=9" style="position:absolute;top:-77px;left:0;width:406px;height:820px;" alt="">
+      </div>
+      <button class="ob" style="left:16px;top:45px;width:72px;height:100px;" title="DXF/SVG Aç" onclick="document.getElementById('fi').click()"></button>
+      <button class="ob" id="b-mir" style="left:80px;top:45px;width:72px;height:100px;" title="Mirror" onclick="toggleMirror()"></button>
+      <div id="mir-f" style="position:absolute;left:80px;top:45px;width:72px;height:100px;pointer-events:none;display:flex;align-items:center;justify-content:center;padding-top:0px;">
+        <svg id="mir-f-svg" width="21" height="29" viewBox="0 0 6 8" style="transition:transform .15s;margin-top:20px;">
+          <polygon points="0,8 0,0 6,0 6,1 2,1 2,3 5,3 5,5 2,5 2,8" fill="#CCCCCC"/>
+        </svg>
+      </div>
 
-      <!-- Arc input: x=198 y=125 w=52 h=26 -->
-      <input class="pi" id="i-arc" value="8" style="left:198px;top:125px;width:52px;height:26px;" title="Arc Smoothing">
-      <!-- Round input: x=268 y=125 w=52 h=26 -->
-      <input class="pi" id="i-rc" value="1.0" style="left:268px;top:125px;width:52px;height:26px;" title="Corner Round (mm)">
-      <!-- Simp input: x=346 y=125 w=52 h=26 -->
-      <input class="pi" id="i-simp" value="0.05" style="left:346px;top:125px;width:52px;height:26px;" title="Simplify">
+      <!-- Arc icon + input -->
+      <img src="arch icon.png" style="position:absolute;left:155px;top:96px;width:24px;height:26px;pointer-events:none;" alt="">
+      <input class="pi" id="i-arc" value="8" style="left:180px;top:96px;width:44px;height:26px;" title="Arc Smoothing">
 
-      <!-- Height: x=62 y=213 w=65 h=26 -->
-      <input class="pi" id="i-h" value="50" style="left:62px;top:213px;width:65px;height:26px;" title="Wall Height (mm)">
-      <!-- Wall thick: x=193 y=213 w=65 h=26 -->
-      <input class="pi" id="i-w" value="3" style="left:193px;top:213px;width:65px;height:26px;" title="Wall Thickness (mm)">
-      <!-- Face thick: x=318 y=213 w=65 h=26 -->
-      <input class="pi" id="i-fp" value="2.4" style="left:318px;top:213px;width:65px;height:26px;" title="Front Face Thickness (mm)">
+      <!-- Round Corner icon + input -->
+      <img src="round corner ikonu.png" style="position:absolute;left:225px;top:96px;width:24px;height:26px;pointer-events:none;" alt="">
+      <input class="pi" id="i-rc" value="1.0" style="left:250px;top:96px;width:44px;height:26px;" title="Corner Round (mm)">
+
+      <!-- Simplify icon + input -->
+      <img src="simplify ikonu.png" style="position:absolute;left:311px;top:96px;width:24px;height:26px;pointer-events:none;" alt="">
+      <input class="pi" id="i-simp" value="0.05" style="left:336px;top:96px;width:44px;height:26px;" title="Simplify">
+
+      <!-- Cover + etiketler -->
+      <div style="position:absolute;left:155px;top:122px;width:251px;height:40px;background:#333333;pointer-events:none;"></div>
+      <span style="position:absolute;left:180px;top:124px;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Arc Smooth.</span>
+      <span style="position:absolute;left:250px;top:124px;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Round Corn.</span>
+      <span style="position:absolute;left:337px;top:124px;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Simplify Nod.</span>
+
+      <!-- wall grubu strip -->
+      <img src="wall grubu.svg" style="position:absolute;top:145px;left:0;width:406px;pointer-events:none;" alt="">
+      <button class="ob" style="left:25px;top:157px;width:92px;height:86px;" onclick="document.getElementById('i-h').select()"></button>
+      <button class="ob" style="left:155px;top:157px;width:92px;height:86px;" onclick="document.getElementById('i-w').select()"></button>
+      <button class="ob" style="left:285px;top:157px;width:92px;height:86px;" onclick="document.getElementById('i-fp').select()"></button>
+      <input class="pi" id="i-h"  value="50"  style="left:31px;top:248px;width:78px;height:20px;" title="Wall Height (mm)">
+      <input class="pi" id="i-w"  value="2.4"   style="left:163px;top:248px;width:78px;height:20px;" title="Wall Thickness (mm)">
+      <input class="pi" id="i-fp" value="2.4" style="left:292px;top:248px;width:78px;height:20px;" title="Front Face Thickness (mm)">
+      <span style="position:absolute;left:25px;top:234px;width:92px;text-align:center;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;letter-spacing:0.2px;">Chn. Height</span>
+      <span style="position:absolute;left:155px;top:234px;width:92px;text-align:center;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;letter-spacing:0.2px;">Chn. Thickness</span>
+      <span style="position:absolute;left:285px;top:234px;width:92px;text-align:center;font-size:8px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;letter-spacing:0.2px;">Front Face Thick.</span>
+
+      <!-- Channel etiket yazıları -->
+      <span style="position:absolute;left:61px;top:295px;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Straight Channel</span>
+      <span style="position:absolute;left:134px;top:295px;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Tapered Channel</span>
+      <span style="position:absolute;left:214px;top:295px;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Flared Channel</span>
+      <span style="position:absolute;left:290px;top:295px;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Degree Channel</span>
 
       <!-- Channel type buttons (y=290) -->
-      <button class="ob" id="b-ws1" style="left:62px;top:290px;width:52px;height:49px;" title="Straight Channel" onclick="setWT(0)"></button>
-      <button class="ob"    id="b-ws2" style="left:139px;top:290px;width:52px;height:49px;" title="Tapered Channel"  onclick="setWT(1)"></button>
-      <button class="ob"    id="b-ws3" style="left:216px;top:290px;width:52px;height:49px;" title="Flared Channel"   onclick="setWT(2)"></button>
-      <button class="ob"    id="b-wd"  style="left:292px;top:290px;width:52px;height:49px;" title="Taper Açısı (°)" onclick="setTaperDeg()"></button>
+      <button class="ob" id="b-ws1" style="left:62px;top:305px;width:52px;height:49px;" title="Straight Channel" onclick="setWT(0)"></button>
+      <button class="ob"    id="b-ws2" style="left:139px;top:305px;width:52px;height:49px;" title="Tapered Channel"  onclick="setWT(1)"></button>
+      <button class="ob"    id="b-ws3" style="left:216px;top:305px;width:52px;height:49px;" title="Flared Channel"   onclick="setWT(2)"></button>
+      <button class="ob"    id="b-wd"  style="left:292px;top:305px;width:52px;height:49px;" title="Taper Açısı (°)" onclick="setTaperDeg()"></button>
 
       <!-- Eski mod ikonlarını kapat (tıpkı desktop _build() gibi) -->
-      <div style="position:absolute;left:32px;top:336px;width:342px;height:90px;background:#333333;pointer-events:none;"></div>
+      <div style="position:absolute;left:32px;top:351px;width:342px;height:90px;background:#333333;pointer-events:none;"></div>
 
       <!-- Mod button icon overlays (pointer-events:none → tıklamalar butonlara geçer) -->
-      <img src="mod1.svg"    style="position:absolute;left:103px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
-      <img src="mod2.svg"    style="position:absolute;left:176px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
-      <img src="onlywall.svg" style="position:absolute;left:249px;top:372px;width:53px;height:48px;pointer-events:none;" alt="">
+      <img src="mod1.svg"    style="position:absolute;left:103px;top:387px;width:53px;height:48px;pointer-events:none;" alt="">
+      <img src="mod2.svg"    style="position:absolute;left:176px;top:387px;width:53px;height:48px;pointer-events:none;" alt="">
+      <img src="onlywall.svg" style="position:absolute;left:249px;top:387px;width:53px;height:48px;pointer-events:none;" alt="">
 
       <!-- Mod buttons (y=372) — şeffaf tıklama alanı, ikonların üstünde -->
-      <button class="ob" id="b-m1" style="left:103px;top:372px;width:53px;height:48px;" title="Mod 1 — İç Yüz"          onclick="setFM(1)"></button>
-      <button class="ob"    id="b-m2" style="left:176px;top:372px;width:53px;height:48px;" title="Mod 2 — Dış Yüz"          onclick="setFM(2)"></button>
-      <button class="ob"    id="b-ow" style="left:249px;top:372px;width:53px;height:48px;" title="Sadece Duvar (Yüzsüz)"    onclick="setFM(0)"></button>
+      <button class="ob" id="b-m1" style="left:103px;top:387px;width:53px;height:48px;" title="Mod 1 — İç Yüz"          onclick="setFM(1)"></button>
+      <button class="ob"    id="b-m2" style="left:176px;top:387px;width:53px;height:48px;" title="Mod 2 — Dış Yüz"          onclick="setFM(2)"></button>
+      <button class="ob"    id="b-ow" style="left:249px;top:387px;width:53px;height:48px;" title="Sadece Duvar (Yüzsüz)"    onclick="setFM(0)"></button>
+      <span style="position:absolute;left:103px;top:378px;width:53px;text-align:center;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Mod 1</span>
+      <span style="position:absolute;left:176px;top:378px;width:53px;text-align:center;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Mod 2</span>
+      <span style="position:absolute;left:249px;top:378px;width:53px;text-align:center;font-size:7.5px;color:#aaa;font-family:Arial,sans-serif;pointer-events:none;">Only Wall</span>
 
       <!-- Tab row icon overlays -->
-      <img src="filldes.svg"   style="position:absolute;left:32px;top:453px;width:52px;height:49px;pointer-events:none;" alt="">
-      <img src="colorbuton.svg" style="position:absolute;left:320px;top:453px;width:52px;height:49px;pointer-events:none;" alt="">
+      <img src="filldes.svg"   style="position:absolute;left:32px;top:468px;width:52px;height:49px;pointer-events:none;" alt="">
+      <img src="colorbuton.svg" style="position:absolute;left:320px;top:468px;width:52px;height:49px;pointer-events:none;" alt="">
 
       <!-- Tab buttons (y=453) -->
-      <button class="ob" id="b-fill"  style="left:32px;top:453px;width:52px;height:49px;"  title="Fill Deseni"         onclick="openFill()"></button>
-      <button class="ob" id="b-tops"  style="left:104px;top:453px;width:52px;height:49px;" title="Top Slot"            onclick="openTopSlot()"></button>
-      <button class="ob" id="b-bots"  style="left:176px;top:453px;width:52px;height:49px;" title="Bottom Slot"         onclick="openBotSlot()"></button>
-      <button class="ob" id="b-cov"   style="left:248px;top:453px;width:52px;height:49px;" title="Back Cover Ayarları" onclick="showModal('m-cover')"></button>
-      <button class="ob" id="b-col"   style="left:320px;top:453px;width:52px;height:49px;" title="Renk Ata"            onclick="showModal('m-color')"></button>
+      <button class="ob" id="b-fill"  style="left:32px;top:468px;width:52px;height:49px;"  title="Fill Deseni"         onclick="openFill()"></button>
+      <button class="ob" id="b-tops"  style="left:104px;top:468px;width:52px;height:49px;" title="Top Slot"            onclick="openTopSlot()"></button>
+      <button class="ob" id="b-bots"  style="left:176px;top:468px;width:52px;height:49px;" title="Bottom Slot"         onclick="openBotSlot()"></button>
+      <button class="ob" id="b-cov"   style="left:248px;top:468px;width:52px;height:49px;" title="Back Cover Ayarları" onclick="showModal('m-cover')"></button>
+      <button class="ob" id="b-col"   style="left:320px;top:468px;width:52px;height:49px;" title="Renk Ata"            onclick="showModal('m-color')"></button>
 
       <!-- DXF buttons (y=534) -->
-      <button class="ob" id="b-plex" style="left:141px;top:534px;width:52px;height:49px;" title="Pleksiglas DXF (1 kredi)" onclick="showModal('m-plex')"></button>
-      <button class="ob" id="b-foam" style="left:213px;top:534px;width:52px;height:49px;" title="Back Foam DXF (1 kredi)"  onclick="showModal('m-foam')"></button>
+      <button class="ob" id="b-plex" style="left:141px;top:549px;width:52px;height:49px;" title="Pleksiglas DXF (1 kredi)" onclick="showModal('m-plex')"></button>
+      <button class="ob" id="b-foam" style="left:213px;top:549px;width:52px;height:49px;" title="Back Foam DXF (1 kredi)"  onclick="showModal('m-foam')"></button>
 
       <!-- Generate 3D: x=146 y=598 w=116 h=19 -->
-      <button class="ob" id="b-gen" style="left:146px;top:598px;width:116px;height:19px;" title="Generate 3D" onclick="generate()"></button>
+      <button class="ob" id="b-gen" style="left:146px;top:613px;width:116px;height:19px;" title="Generate 3D" onclick="generate()"></button>
 
       <!-- Export STL: x=140 y=656 w=66 h=22 -->
-      <button class="ob" id="b-estl"  style="left:140px;top:656px;width:66px;height:22px;"  title="Export STL (1 kredi)"        onclick="doExp('wall_stl','harfex_wall.stl')"></button>
+      <button class="ob" id="b-estl"  style="left:140px;top:671px;width:66px;height:22px;"  title="Export STL (1 kredi)"        onclick="doExp('wall_stl','harfex_wall.stl')"></button>
       <!-- Export 3MF: x=209 y=656 w=64 h=22 -->
-      <button class="ob" id="b-e3mf"  style="left:209px;top:656px;width:64px;height:22px;"  title="Export 3MF (1 kredi)"        onclick="doExp('combined_3mf','harfex.3mf')"></button>
+      <button class="ob" id="b-e3mf"  style="left:209px;top:671px;width:64px;height:22px;"  title="Export 3MF (1 kredi)"        onclick="doExp('combined_3mf','harfex.3mf')"></button>
       <!-- Cover Export: x=140 y=682 w=133 h=18 -->
-      <button class="ob" id="b-ecover" style="left:140px;top:682px;width:133px;height:22px;" title="Back Cover STL (1 kredi)"    onclick="doExp('cover_stl','harfex_cover.stl')"></button>
+      <button class="ob" id="b-ecover" style="left:140px;top:697px;width:133px;height:22px;" title="Back Cover STL (1 kredi)"    onclick="doExp('cover_stl','harfex_cover.stl')"></button>
 
       <!-- R/P: x=170,203 y=711 w=33 h=25 -->
-      <button class="ob" id="b-r" style="left:170px;top:711px;width:33px;height:25px;" title="Profil Kaydet (R)" onclick="showModal('m-prof')"></button>
-      <button class="ob" id="b-p" style="left:203px;top:711px;width:33px;height:25px;" title="Profil Yükle (P)"  onclick="showModal('m-prof')"></button>
+      <button class="ob" id="b-r" style="left:170px;top:726px;width:33px;height:25px;" title="Profil Kaydet (R)" onclick="showModal('m-prof')"></button>
+      <button class="ob" id="b-p" style="left:203px;top:726px;width:33px;height:25px;" title="Profil Yükle (P)"  onclick="showModal('m-prof')"></button>
 
-      <!-- Status: x=13 y=742 -->
-      <div id="status-lbl" style="top:742px;"></div>
+      <div id="status-lbl" style="display:none;"></div>
 
       <!-- Objects section -->
       <div id="obj-section">
@@ -389,7 +418,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
     <h2 data-key="cv-hdr">Back Cover Ayarları</h2><div class="ms"></div>
     <div class="mr"><span class="ml" data-key="cv-ct">Taban kalınlığı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-ct" value="2.0" min="0.5" max="20" step="0.1"><span class="ml">mm</span></div></div>
     <div class="mr"><span class="ml" data-key="cv-wh">İç duvar yüksekliği:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-wh" value="15.0" min="1" max="200" step="0.5"><span class="ml">mm</span></div></div>
-    <div class="mr"><span class="ml" data-key="cv-cl">Boşluk / Clearance:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-cl" value="0.05" min="0" max="2" step="0.01"><span class="ml">mm</span></div></div>
+    <div class="mr"><span class="ml" data-key="cv-cl">Boşluk / Clearance:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-cl" value="0.50" min="0" max="2" step="0.01"><span class="ml">mm</span></div></div>
     <div class="mr"><span class="ml" data-key="cv-wt">Tab duvar kalınlığı:</span><div style="display:flex;align-items:center;gap:4px;"><input type="number" class="mi" id="cv-wt" value="3.0" min="0.5" max="20" step="0.1"><span class="ml">mm</span></div></div>
     <div style="margin-top:6px;"><button class="bdg" onclick="removeCover()" data-key="cv-rm">Back Cover'ı Kaldır</button></div>
     <div class="brow">
@@ -491,7 +520,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
         <!-- Toggle bar -->
         <div id="band-toggle-bar" class="off" style="width:104px;"
              onclick="toggleBand()" title="Strip aktif/inaktif">
-          <div style="text-align:center;font-size:9px;color:#fff;line-height:14px;letter-spacing:.5px;" id="band-toggle-lbl">OFF</div>
+          <div style="text-align:center;font-size:12px;font-weight:600;color:#fff;letter-spacing:1px;" id="band-toggle-lbl">OFF</div>
         </div>
         <!-- Slider + canvas -->
         <div id="mock-wrap">
@@ -509,7 +538,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 
     </div>
     <div class="brow" style="margin-top:14px;">
-      <button class="bca" onclick="closeModal('m-color')" data-key="col-ca">Kapat</button>
+      <button class="bca" onclick="closeModal('m-color')" data-key="col-ca">Tamam</button>
     </div>
   </div>
 </div>
@@ -552,7 +581,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 
 <!-- ═══════════════ SCRIPTS ════════════════════════════════════ -->
 <script>
-const API = 'http://127.0.0.1:8080';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://127.0.0.1:8080'
+  : 'https://harfex-api.onrender.com';
 
 // ── State — ModelSlot varsayılanlarını yansıtır (main.py satır 74-104) ──
 const S = {
@@ -571,6 +602,62 @@ const S = {
   bandOn:false, bandPos:null, bandH:null,
   dm:'shaded', profs:{},
 };
+
+// ── localStorage kayıt/yükle ───────────────────────────────────────────────
+const _LS_KEY = 'harfex_settings';
+const _LS_INPUT_IDS = ['i-h','i-w','i-fp','i-arc','i-rc','i-simp'];
+function _saveLS(){
+  try{
+    const data = {
+      wt:S.wt, fm:S.fm, fi:S.fi, sp:S.sp, ft:S.ft,
+      mirOn:S.mirOn, wallTaper:S.wallTaper,
+      topTab:S.topTab, botTab:S.botTab,
+      topProj:S.topProj, topTabZ:S.topTabZ,
+      botProj:S.botProj, botTabZ:S.botTabZ,
+      wc:S.wc, fc:S.fc, cc:S.cc, bc:S.bc,
+      bandOn:S.bandOn, bandPos:S.bandPos, bandH:S.bandH,
+    };
+    _LS_INPUT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) data['_'+id]=el.value; });
+    localStorage.setItem(_LS_KEY, JSON.stringify(data));
+  }catch(e){}
+}
+function _loadLS(){
+  try{
+    const raw = localStorage.getItem(_LS_KEY); if(!raw) return;
+    const data = JSON.parse(raw);
+    const keys = ['wt','fm','fi','sp','ft','mirOn','wallTaper','topTab','botTab',
+                  'topProj','topTabZ','botProj','botTabZ','wc','fc','cc','bc',
+                  'bandOn','bandPos','bandH'];
+    keys.forEach(k=>{ if(data[k]!=null) S[k]=data[k]; });
+    _LS_INPUT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el && data['_'+id]!=null) el.value=data['_'+id]; });
+    _applyUIState();
+  }catch(e){}
+}
+
+// ── Undo history (Ctrl+Z, max 15 adım) ────────────────────────────────────
+const _history = [];
+const _INPUT_IDS = ['i-h','i-w','i-fp','i-arc','i-rc','i-simp','i-wd','i-tp','i-bp','i-bpos','i-bh'];
+function _saveHistory(){
+  const {file, _coverBlob, ...rest} = S;
+  const snap = {s: JSON.parse(JSON.stringify(rest)), file, _coverBlob, inputs: {}};
+  _INPUT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) snap.inputs[id]=el.value; });
+  _history.push(snap);
+  if(_history.length > 15) _history.shift();
+  _saveLS();
+}
+function _undo(){
+  if(_history.length === 0) return;
+  const snap = _history.pop();
+  Object.assign(S, snap.s);
+  S.file = snap.file;
+  S._coverBlob = snap._coverBlob;
+  _INPUT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el && snap.inputs[id]!=null) el.value=snap.inputs[id]; });
+  _applyUIState();
+  if(S.file && S.ready) generate();
+}
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); _undo(); }
+});
 
 // ── Highlight helpers — mirrors _update_mod_highlight / _update_slot_highlight / _update_wall_highlight
 function _updateModHighlight(){
@@ -596,7 +683,7 @@ function _applyUIState(){
   _updateSlotHighlight();
   document.getElementById('b-cov').classList.toggle('on', S.covOn);
   document.getElementById('b-mir').classList.toggle('on', S.mirOn);
-  document.getElementById('mir-f').style.transform=S.mirOn?'scaleX(-1)':'scaleX(1)';
+  const _mfs=document.getElementById('mir-f-svg'); if(_mfs) _mfs.style.transform=S.mirOn?'scaleX(-1)':'scaleX(1)';
 }
 
 // Input değerini oku; boşsa varsayılan kullan, 0 dahil tüm sayısal değerleri koru
@@ -694,6 +781,7 @@ document.getElementById('pi').addEventListener('drop', e=>{
 // ── Wall type — mirrors _set_wall_type ────────────────────────
 let _pendingWT = null;
 function setWT(t){
+  _saveHistory();
   // Only Face modundaysa Mod1'e dön, fill sıfırla (main.py _set_wall_type)
   if(S.fm===3){ S.fm=1; S.fi=0; _updateModHighlight(); }
   if(t===0){
@@ -717,6 +805,7 @@ function setTaperDeg(){
 function applyTaperDeg(){
   const n=parseFloat(document.getElementById('td-val').value);
   if(isNaN(n)||n<=0) return;
+  _saveHistory();
   S.wallTaper=n;
   if(_pendingWT!==null){ S.wt=_pendingWT; _pendingWT=null; }
   _updateWallHighlight();
@@ -727,6 +816,7 @@ function applyTaperDeg(){
 
 // ── Face mode — mirrors _face_mode_direct / _only_wall ─────────
 function setFM(m){
+  _saveHistory();
   if(m===0){
     // Only Wall — mirrors _only_wall: fill sıfırla
     S.fm=0; S.fi=0;
@@ -745,9 +835,10 @@ function setFM(m){
 
 // ── Mirror — mirrors _my ────────────────────────────────────────
 function toggleMirror(){
+  _saveHistory();
   S.mirOn = !S.mirOn;
   document.getElementById('b-mir').classList.toggle('on', S.mirOn);
-  document.getElementById('mir-f').style.transform = S.mirOn ? 'scaleX(-1)' : 'scaleX(1)';
+  const _mf2=document.getElementById('mir-f'); if(_mf2) _mf2.style.transform=S.mirOn?'scaleX(-1)':'scaleX(1)';
   // Sadece kontur güncellenir — generate tetiklenmez (main.py _my davranışı)
   if(contourObj) contourObj.scale.x = S.mirOn ? -1 : 1;
   else if(S.file) loadContour(S.file);
@@ -841,6 +932,7 @@ function setSP(p){
   [0,1,2,3].forEach(i => document.getElementById('sp-'+i).classList.toggle('on', i===p));
 }
 function applyFill(){
+  _saveHistory();
   S.fi=_fi; S.sp=_sp;
   // only_face checkbox — mirrors dlg.only_face logic
   const onlyFace=document.getElementById('of-cb').checked;
@@ -858,6 +950,7 @@ function applyFill(){
 // ── Cover ──────────────────────────────────────────────────────
 function applyCover(){
   if(!S.file){ toast('Önce DXF yükleyin','err'); closeModal('m-cover'); return; }
+  _saveHistory();
   S.covOn=true;
   document.getElementById('b-cov').classList.add('on');
   closeModal('m-cover');
@@ -883,15 +976,28 @@ async function _buildCover(){
     fd.append('cover_wt',        numv('cv-wt', 3));
     const r=await fetch(`${API}/api/cover`,{method:'POST',body:fd});
     if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
-    const blob=await r.blob();
-    S._coverBlob=blob;
-    loadCoverSTL(blob.slice());
-    toast('Back Cover hazır ✓','ok');
-    setStat('Back Cover oluşturuldu',3000);
-  }catch(e){ toast('Back Cover hatası: '+e.message,'err'); }
-  finally{ setSpin(false); }
+    const {jobId} = await r.json();
+    _pollJob(jobId, (result)=>{
+      const bytes = Uint8Array.from(atob(result.content), c=>c.charCodeAt(0));
+      const blob = new Blob([bytes], {type:'model/stl'});
+      S._coverBlob = blob;
+      loadCoverSTL(blob.slice());
+      toast('Back Cover hazır ✓','ok');
+      setStat('Back Cover oluşturuldu',3000);
+      setSpin(false);
+    }, (err)=>{
+      const isOff = err.includes('bağlanam');
+      toast(isOff ? err : 'Back Cover hatası: '+err,'err');
+      setSpin(false);
+    });
+  }catch(e){
+    const isOff = e.message.includes('fetch')||e.message.includes('Failed')||e.message.includes('NetworkError');
+    toast(isOff ? 'Sunucuya bağlanılamadı — lütfen tekrar deneyin' : 'Back Cover hatası: '+e.message,'err');
+    setSpin(false);
+  }
 }
 function removeCover(){
+  _saveHistory();
   S.covOn=false;
   document.getElementById('b-cov').classList.remove('on');
   closeModal('m-cover');
@@ -902,6 +1008,7 @@ function removeCover(){
 // Tekrar basılırsa kapatır (toggle), main.py davranışı
 function openTopSlot(){
   if(S.topTab){
+    _saveHistory();
     S.topTab=false; _updateSlotHighlight();
     setStat('Top slot kapatıldı — Generate ile güncelle', 2000);
     return;
@@ -911,6 +1018,7 @@ function openTopSlot(){
   showModal('m-tops');
 }
 function applyTopSlot(){
+  _saveHistory();
   S.topProj=parseFloat(document.getElementById('ts-pr').value)||4;
   S.topTabZ=parseFloat(document.getElementById('ts-z').value)||-2;
   S.topTab=true; _updateSlotHighlight();
@@ -920,6 +1028,7 @@ function applyTopSlot(){
 }
 function openBotSlot(){
   if(S.botTab){
+    _saveHistory();
     S.botTab=false; _updateSlotHighlight();
     setStat('Bottom slot kapatıldı — Generate ile güncelle', 2000);
     return;
@@ -929,6 +1038,7 @@ function openBotSlot(){
   showModal('m-bots');
 }
 function applyBotSlot(){
+  _saveHistory();
   S.botProj=parseFloat(document.getElementById('bs-pr').value)||4;
   S.botTabZ=Math.abs(parseFloat(document.getElementById('bs-z').value)||2);
   S.botTab=true; _updateSlotHighlight();
@@ -970,6 +1080,7 @@ function onColorInput(key, val){
 }
 
 function toggleBand(){
+  _saveHistory();
   S.bandOn = !S.bandOn;
   const tb = document.getElementById('band-toggle-bar');
   tb.className = S.bandOn ? 'on' : 'off';
@@ -1217,8 +1328,12 @@ function applyProf(){
   closeModal('m-prof');
   toast('Profil yüklendi: '+sel,'ok');
   if(S.file){
+    if(S.covOn){
+      // generate bittikten sonra cover yeniden oluştur
+      const _origDone = S._onGenerateDone;
+      S._onGenerateDone = ()=>{ _buildCover(); S._onGenerateDone=_origDone; };
+    }
     generate();
-    if(S.covOn) setTimeout(()=>_buildCover(), 500);
   }
 }
 function delProf(){
@@ -1275,49 +1390,77 @@ function buildFD(output){
   return fd;
 }
 
+// ── Job polling ────────────────────────────────────────────────
+let _genId = 0;
+let _genTimer = null;
+function generateDebounced(delay=400){
+  clearTimeout(_genTimer);
+  _genTimer = setTimeout(()=>{ if(S.file) generate(); }, delay);
+}
+
+function _pollJob(jobId, onDone, onError, _dots=0){
+  setTimeout(async ()=>{
+    try{
+      const r = await fetch(`${API}/api/job/${jobId}`);
+      if(!r.ok){ onError('Sunucuya bağlanılamadı'); return; }
+      const d = await r.json();
+      if(d.status==='running'){
+        const dots = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'][_dots%10];
+        setSpin(true, `${dots} İşleniyor…`);
+        _pollJob(jobId, onDone, onError, _dots+1);
+      } else if(d.status==='done'){
+        onDone(d.result);
+      } else {
+        onError(d.error || 'Bilinmeyen hata');
+      }
+    }catch(e){ onError('Sunucuya bağlanılamadı — lütfen tekrar deneyin'); }
+  }, 800);
+}
+
 // ── Generate ───────────────────────────────────────────────────
 async function generate(){
   if(!S.file){ toast('Önce DXF yükleyin','err'); return; }
-  setSpin(true,'Geometri hesaplanıyor…');
+  const myId = ++_genId;
+  setSpin(true,'Geometri gönderiliyor…');
   document.getElementById('b-gen').disabled=true;
   const t0=performance.now();
   try{
-    // Wall + face tek istekte
     const r = await fetch(`${API}/api/process`,{method:'POST',body:buildFD('wall_preview')});
+    if(myId !== _genId){ setSpin(false); document.getElementById('b-gen').disabled=false; return; }
     if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
-    const data = await r.json();
-    const faces = data.wall_faces || '?';
-    const dt = ((performance.now()-t0)/1000).toFixed(2);
-    clearContour(); clearFace();
-    // Wall STL
-    const wallArr = Uint8Array.from(atob(data.wall), c=>c.charCodeAt(0));
-    loadSTL(new Blob([wallArr]));
-    // Face STL
-    if(data.face){
-      const faceArr = Uint8Array.from(atob(data.face), c=>c.charCodeAt(0));
-      loadFaceSTL(new Blob([faceArr]));
-      addObj('face_0', (S.file?.name||'Model')+' • Yüz');
-    }
-    S.ready=true;
-    document.getElementById('empty-state').style.display='none';
-    document.getElementById('vp-stats').style.display='block';
-    document.getElementById('vp-stats').textContent=`Faces: ${faces}`;
-    document.getElementById('sb-t').textContent=faces+' üçgen';
-    document.getElementById('sb-tm').textContent=dt+'s';
-    setStat('✓ Model hazır', 3000);
-    addObj('body_0', (S.file?.name||'Model')+' • Duvar');
-    toast('Generate tamamlandı ✓','ok');
+    const {jobId} = await r.json();
+    _pollJob(jobId, (result)=>{
+      if(myId !== _genId){ setSpin(false); document.getElementById('b-gen').disabled=false; return; }
+      const dt = ((performance.now()-t0)/1000).toFixed(2);
+      clearContour(); clearFace();
+      const wallArr = Uint8Array.from(atob(result.wall), c=>c.charCodeAt(0));
+      loadSTL(new Blob([wallArr]));
+      if(result.face){
+        const faceArr = Uint8Array.from(atob(result.face), c=>c.charCodeAt(0));
+        loadFaceSTL(new Blob([faceArr]));
+        addObj('face_0', (S.file?.name||'Model')+' • Yüz');
+      }
+      S.ready=true;
+      document.getElementById('empty-state').style.display='none';
+      document.getElementById('vp-stats').style.display='block';
+      document.getElementById('vp-stats').textContent=`Faces: ${result.wall_faces||'?'}`;
+      document.getElementById('sb-t').textContent=(result.wall_faces||'?')+' üçgen';
+      document.getElementById('sb-tm').textContent=dt+'s';
+      setStat('✓ Model hazır', 3000);
+      addObj('body_0', (S.file?.name||'Model')+' • Duvar');
+      toast('Generate tamamlandı ✓','ok');
+      if(S._onGenerateDone){ S._onGenerateDone(); S._onGenerateDone=null; }
+      setSpin(false); document.getElementById('b-gen').disabled=false;
+    }, (err)=>{
+      toast('İşlem hatası: '+err,'err');
+      setStat('⚠ '+err, 8000);
+      setSpin(false); document.getElementById('b-gen').disabled=false;
+    });
   }catch(e){
-    const isOffline = e.message.includes('fetch') || e.message.includes('Failed') || e.message.includes('NetworkError');
-    const msg = isOffline
-      ? 'API bağlantı hatası — sunucu açık mı? Detay: ' + e.message
-      : 'Hata: ' + e.message;
-    toast(msg, 'err');
-    setStat('⚠ ' + e.message, 8000);
-    console.error('[Generate Error]', e.message, e);
-  }finally{
-    setSpin(false);
-    document.getElementById('b-gen').disabled=false;
+    const isOffline = e.message.includes('fetch')||e.message.includes('Failed')||e.message.includes('NetworkError');
+    const msg = isOffline ? 'Sunucuya bağlanılamadı — lütfen tekrar deneyin' : 'İşlem hatası: '+e.message;
+    toast(msg,'err'); setStat('⚠ '+msg, 8000);
+    setSpin(false); document.getElementById('b-gen').disabled=false;
   }
 }
 
@@ -1369,38 +1512,44 @@ function doPlexExport(){
 
 async function doExp(out, fname){
   if(!S.file){ toast('Önce DXF yükleyin','err'); return; }
-
   setSpin(true,'Dosya hazırlanıyor…');
   try{
-    let r;
+    let fd;
+    let endpoint = `${API}/api/process`;
     if(out === 'cover_stl'){
       if(!S.covOn){ toast('Önce Back Cover oluşturun','err'); setSpin(false); return; }
-      const fd=new FormData();
+      fd = new FormData();
       fd.append('file', S.file);
       const p=params();
-      fd.append('wall_mm',         p.wall_mm);
-      fd.append('height_mm',       p.height_mm);
-      fd.append('wall_type',       p.wall_type);
-      fd.append('wall_taper',      p.wall_taper);
-      fd.append('arc_sm',          p.arc_sm);
-      fd.append('round_c',         p.round_c);
-      fd.append('simplify',        p.simplify);
-      fd.append('mirror_x',        p.mirror_x);
+      ['wall_mm','height_mm','wall_type','wall_taper','arc_sm','round_c','simplify','mirror_x'].forEach(k=>fd.append(k,p[k]));
       fd.append('cover_ct',        document.getElementById('cv-ct').value||2);
       fd.append('cover_wh',        document.getElementById('cv-wh').value||15);
       fd.append('cover_clearance', document.getElementById('cv-cl').value||0.05);
       fd.append('cover_wt',        document.getElementById('cv-wt').value||3);
-      r = await fetch(`${API}/api/cover`, {method:'POST', body:fd});
+      endpoint = `${API}/api/cover`;
     } else {
-      r = await fetch(`${API}/api/process`, {method:'POST', body:buildFD(out)});
+      fd = buildFD(out);
     }
+    const r = await fetch(endpoint, {method:'POST', body:fd});
     if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
-    const blob=await r.blob();
-    _downloadBlob(blob, fname);
-    toast(fname+' indirildi ✓','ok');
-    setStat(fname+' hazır', 3000);
-  }catch(e){ toast('Export hatası: '+e.message,'err'); }
-  finally{ setSpin(false); }
+    const {jobId} = await r.json();
+    _pollJob(jobId, (result)=>{
+      const bytes = Uint8Array.from(atob(result.content), c=>c.charCodeAt(0));
+      const blob = new Blob([bytes], {type: result.media_type});
+      _downloadBlob(blob, result.filename || fname);
+      toast(fname+' indirildi ✓','ok');
+      setStat(fname+' hazır', 3000);
+      setSpin(false);
+    }, (err)=>{
+      const isOff = err.includes('bağlanam');
+      toast(isOff ? err : 'Export hatası: '+err, 'err');
+      setSpin(false);
+    });
+  }catch(e){
+    const isOff = e.message.includes('fetch')||e.message.includes('Failed')||e.message.includes('NetworkError');
+    toast(isOff ? 'Sunucuya bağlanılamadı — lütfen tekrar deneyin' : 'Export hatası: '+e.message,'err');
+    setSpin(false);
+  }
 }
 
 function doSliceMenu(){
@@ -1455,9 +1604,22 @@ function setStat(msg,ms=0){
   clearTimeout(_stTimer);
   if(ms>0) _stTimer=setTimeout(()=>el.style.display='none',ms);
 }
+let _spinTimer=null, _spinT0=0;
 function setSpin(on,lbl){
   document.getElementById('spinner').classList.toggle('on',on);
-  if(lbl) document.getElementById('slbl').textContent=lbl;
+  const slbl=document.getElementById('slbl');
+  if(on){
+    _spinT0=performance.now();
+    if(lbl) slbl.textContent=lbl+' 0s';
+    clearInterval(_spinTimer);
+    _spinTimer=setInterval(()=>{
+      const s=((performance.now()-_spinT0)/1000).toFixed(1);
+      slbl.textContent=(lbl||'İşleniyor…')+' '+s+'s';
+    },100);
+  } else {
+    clearInterval(_spinTimer); _spinTimer=null;
+    if(lbl) slbl.textContent=lbl;
+  }
 }
 function toast(msg,type='ok'){
   const t=document.getElementById('toast');
@@ -1528,8 +1690,10 @@ function loadSTL(blob){
     const mx=Math.max(sz.x,sz.y,sz.z,1);
     cam.near = mx * 0.001; cam.far = mx * 200;
     cam.updateProjectionMatrix();
-    cam.position.set(cen.x, cen.y - mx*1.8, cen.z + mx*1.2);
-    ctrl.target.copy(cen); ctrl.update();
+    if(!S.ready){
+      cam.position.set(cen.x, cen.y - mx*1.8, cen.z + mx*1.2);
+      ctrl.target.copy(cen); ctrl.update();
+    }
     resizeGrid(mx);
   });
 }
@@ -1557,16 +1721,12 @@ function loadCoverSTL(blob){
       color:new THREE.Color(S.cc), specular:0x444444, shininess:40,
       side:THREE.DoubleSide, wireframe:S.dm==='wireframe',
     }));
-    // Kapağı ana gövdenin arkasına (pozitif Y), 5mm boşlukla yerleştir
+    // Cover'ı gövdenin arkasına (Y+) yerleştir
     if(meshObj){
-      const bodyBox=new THREE.Box3().setFromObject(meshObj);
-      const bodyCen=new THREE.Vector3(); bodyBox.getCenter(bodyCen);
-      // Kapağın kendi bounding box'ını hesapla (pozisyon=0'dayken)
+      const bodyBox = new THREE.Box3().setFromObject(meshObj);
       geo.computeBoundingBox();
-      const coverMinY = geo.boundingBox.min.y;
-      // Kapağın min.y'si bodyBox.max.y + 5 olacak şekilde pozisyonla
-      const offsetY = bodyBox.max.y + 5 - coverMinY;
-      coverObj.position.set(bodyCen.x, offsetY, 0);
+      const offsetY = bodyBox.max.y + 5 - geo.boundingBox.min.y;
+      coverObj.position.set(0, offsetY, 0);
     }
     scene.add(coverObj);
     addObj('cover_0','Back Cover');
@@ -1695,6 +1855,16 @@ document.getElementById('pi').style.minHeight='860px';
 document.getElementById('i-fp').addEventListener('input', ()=>{
   S.ft = parseFloat(document.getElementById('i-fp').value)||3.0;
 });
+// Enter ve blur ile generate — yükseklik, duvar kalınlığı, ön yüz kalınlığı
+['i-h','i-w','i-fp'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); _saveHistory(); generateDebounced(0); }
+  });
+  el.addEventListener('blur', ()=>{ _saveHistory(); generateDebounced(200); });
+});
+// Sayfa açılınca kayıtlı ayarları yükle
+_loadLS();
 </script>
 </body>
 </html>

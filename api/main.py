@@ -12,8 +12,12 @@ Endpoints:
 
 import os
 import sys
+import uuid
+import time
+import base64
+import threading
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +26,32 @@ from fastapi.responses import Response, JSONResponse
 # engine modülünü bul
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from engine import HarfexEngine as HarfexProcessor
+
+
+# ── Job queue ─────────────────────────────────────────────────────────────────
+_jobs: Dict[str, Dict[str, Any]] = {}
+_jobs_lock = threading.Lock()
+
+def _new_job() -> str:
+    job_id = uuid.uuid4().hex
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "running", "created": time.time()}
+    return job_id
+
+def _set_job_done(job_id: str, result: dict):
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "done", "result": result, "created": time.time()}
+
+def _set_job_error(job_id: str, msg: str):
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "error", "error": msg, "created": time.time()}
+
+def _cleanup_jobs():
+    cutoff = time.time() - 1800  # 30 dakika
+    with _jobs_lock:
+        old = [k for k, v in _jobs.items() if v.get("created", 0) < cutoff]
+        for k in old:
+            del _jobs[k]
 
 
 # ── Uygulama ──────────────────────────────────────────────────────────────────
@@ -38,6 +68,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Job durum sorgusu ─────────────────────────────────────────────────────────
+@app.get("/api/job/{job_id}")
+def get_job(job_id: str):
+    _cleanup_jobs()
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job bulunamadı veya süresi doldu")
+    if job["status"] == "running":
+        return {"status": "running"}
+    if job["status"] == "error":
+        return {"status": "error", "error": job["error"]}
+    return {"status": "done", "result": job["result"]}
 
 
 # ── Sağlık kontrolü ───────────────────────────────────────────────────────────
@@ -57,7 +102,7 @@ def health():
 
 # ── Ana işlem endpoint'i ──────────────────────────────────────────────────────
 @app.post("/api/process")
-async def process(
+async def process_endpoint(
     file:              UploadFile = File(...,        description="DXF dosyası"),
     output:            str        = Form("wall_stl", description="wall_stl | face_stl | cover_stl | plexiglas_dxf | wall_3mf | combined_3mf | foam_dxf"),
     wall_mm:           float      = Form(5.0,        description="Duvar kalınlığı (mm)"),
@@ -93,139 +138,85 @@ async def process(
     band_pos:          float      = Form(0.0,        description="Kuşak başlangıç Z (mm)"),
     band_h:            float      = Form(0.0,        description="Kuşak yüksekliği (mm)"),
 ):
-    """
-    DXF dosyasını işle ve istenen çıktı dosyasını döndür.
-
-    `output` değerleri:
-    - **wall_stl**      → Duvar/gövde STL (1 kredi)
-    - **face_stl**      → Yüz STL (1 kredi)
-    - **cover_stl**     → Arka kapak STL (1 kredi)
-    - **plexiglas_dxf** → Pleksiglas kesim DXF (1 kredi)
-    """
-    # Dosya kontrolü
+    """DXF → background job başlat, anında jobId döner."""
     if not file.filename:
         raise HTTPException(400, "Dosya adı boş.")
     suffix = Path(file.filename).suffix.lower()
     if suffix not in (".dxf", ".svg", ".eps"):
         raise HTTPException(400, f"Desteklenmeyen format: {suffix!r}. DXF/SVG/EPS gerekli.")
-
     data = await file.read()
-    if len(data) == 0:
+    if not data:
         raise HTTPException(400, "Boş dosya yüklendi.")
 
-    # Processor
-    proc = HarfexProcessor()
+    job_id = _new_job()
 
-    # Önce DXF yükle — load_dxf_bytes içinde mx/my/top_tab vs. sıfırlanıyor
-    # set_params SONRA çağrılmalı ki sıfırlama üzerine yazılsın
-    try:
-        proc.load_dxf_bytes(data, suffix=suffix)
-    except Exception as e:
-        raise HTTPException(422, f"DXF okunamadı: {e}")
+    # Tüm parametreleri capture et ve thread'de çalıştır
+    def _run():
+        try:
+            proc = HarfexProcessor()
+            try:
+                proc.load_dxf_bytes(data, suffix=suffix)
+            except Exception as e:
+                _set_job_error(job_id, f"DXF okunamadı: {e}"); return
 
-    proc.set_params(
-        wall_mm=wall_mm, height_mm=height_mm,
-        wall_type=wall_type, wall_taper=wall_taper,
-        face_mode=face_mode, face_thickness=face_thickness,
-        face_fill=face_fill, face_fill_cell=face_fill_cell,
-        face_fill_wall=face_fill_wall,
-        face_fill_solid_pos=face_fill_solid_pos,
-        face_fill_border=face_fill_border,
-        arc_sm=arc_sm,
-        round_c=round_c, simplify=simplify,
-        cover_ct=cover_ct, cover_wh=cover_wh,
-        cover_clearance=cover_clearance, cover_wt=cover_wt,
-        plexiglas_offset=plexiglas_offset,
-        foam_offset=foam_offset,
-        mx=bool(mirror_x), my=bool(mirror_y),
-        top_tab=top_tab, bot_tab=bot_tab,
-        top_proj=top_proj, bot_proj=bot_proj,
-        top_tab_z=top_tab_z, bot_tab_z=bot_tab_z,
-    )
+            proc.set_params(
+                wall_mm=wall_mm, height_mm=height_mm,
+                wall_type=wall_type, wall_taper=wall_taper,
+                face_mode=face_mode, face_thickness=face_thickness,
+                face_fill=face_fill, face_fill_cell=face_fill_cell,
+                face_fill_wall=face_fill_wall,
+                face_fill_solid_pos=face_fill_solid_pos,
+                face_fill_border=face_fill_border,
+                arc_sm=arc_sm, round_c=round_c, simplify=simplify,
+                cover_ct=cover_ct, cover_wh=cover_wh,
+                cover_clearance=cover_clearance, cover_wt=cover_wt,
+                plexiglas_offset=plexiglas_offset, foam_offset=foam_offset,
+                mx=bool(mirror_x), my=bool(mirror_y),
+                top_tab=top_tab, bot_tab=bot_tab,
+                top_proj=top_proj, bot_proj=bot_proj,
+                top_tab_z=top_tab_z, bot_tab_z=bot_tab_z,
+            )
 
-    try:
-        stats = proc.build()
-    except Exception as e:
-        raise HTTPException(500, f"3D üretim hatası: {e}")
+            try:
+                stats = proc.build()
+            except Exception as e:
+                _set_job_error(job_id, f"3D üretim hatası: {e}"); return
 
-    # Çıktı seçimi
-    print(f"[API] output={output!r}")
-    try:
-        if output == "wall_preview":
-            # Wall + face tek istekte (base64 JSON)
-            import base64, json as _json
-            wall_b64 = base64.b64encode(proc.export_stl_bytes()).decode()
-            face_b64 = None
-            if face_mode != 0:
-                try:
-                    face_b64 = base64.b64encode(proc.export_face_stl_bytes()).decode()
-                except Exception:
-                    face_b64 = None
-            content    = _json.dumps({"wall": wall_b64, "face": face_b64,
-                                      "wall_faces": stats.get("wall_faces", 0)}).encode()
-            media_type = "application/json"
-            filename   = "harfex_preview.json"
+            print(f"[API] job={job_id} output={output!r}")
+            if output == "wall_preview":
+                wall_b64 = base64.b64encode(proc.export_stl_bytes()).decode()
+                face_b64 = None
+                if face_mode != 0:
+                    try: face_b64 = base64.b64encode(proc.export_face_stl_bytes()).decode()
+                    except Exception: pass
+                _set_job_done(job_id, {
+                    "type": "wall_preview",
+                    "wall": wall_b64, "face": face_b64,
+                    "wall_faces": stats.get("wall_faces", 0),
+                })
+            elif output == "wall_stl":
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_wall.stl"})
+            elif output == "face_stl":
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_face_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_face.stl"})
+            elif output == "cover_stl":
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_cover_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
+            elif output == "plexiglas_dxf":
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_plexiglas_dxf_bytes(mode="kanal")).decode(),"media_type":"application/dxf","filename":"harfex_plexiglas.dxf"})
+            elif output == "foam_dxf":
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_foam_dxf_bytes()).decode(),"media_type":"application/dxf","filename":"harfex_foam.dxf"})
+            elif output == "wall_3mf":
+                content = proc.export_3mf_bytes(include_face=False, band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_wall.3mf"})
+            elif output == "combined_3mf":
+                content = proc.export_3mf_bytes(include_face=True, include_cover=bool(include_cover), band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_combined.3mf"})
+            else:
+                _set_job_error(job_id, f"Bilinmeyen output: {output!r}")
+        except Exception as e:
+            _set_job_error(job_id, f"Beklenmeyen hata: {e}")
 
-        elif output == "wall_stl":
-            content      = proc.export_stl_bytes()
-            media_type   = "model/stl"
-            filename     = "harfex_wall.stl"
-
-        elif output == "face_stl":
-            if face_mode == 0:
-                raise HTTPException(400, "face_mode=0 — yüz devre dışı.")
-            content      = proc.export_face_stl_bytes()
-            media_type   = "model/stl"
-            filename     = "harfex_face.stl"
-
-        elif output == "cover_stl":
-            print(f"[API] cover_stl branch — cover_ct={cover_ct}, cover_wh={cover_wh}")
-            content      = proc.export_cover_stl_bytes()
-            print(f"[API] cover_stl OK — {len(content)} bytes")
-            media_type   = "model/stl"
-            filename     = "harfex_cover.stl"
-
-        elif output == "plexiglas_dxf":
-            content    = proc.export_plexiglas_dxf_bytes(mode="kanal")
-            media_type = "application/dxf"
-            filename   = "harfex_plexiglas.dxf"
-
-        elif output == "foam_dxf":
-            content    = proc.export_foam_dxf_bytes()
-            media_type = "application/dxf"
-            filename   = "harfex_foam.dxf"
-
-        elif output == "wall_3mf":
-            content    = proc.export_3mf_bytes(include_face=False,
-                             band_pos=band_pos if include_band else None,
-                             band_h=band_h   if include_band else None)
-            media_type = "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
-            filename   = "harfex_wall.3mf"
-
-        elif output == "combined_3mf":
-            content    = proc.export_3mf_bytes(include_face=True, include_cover=bool(include_cover),
-                             band_pos=band_pos if include_band else None,
-                             band_h=band_h   if include_band else None)
-            media_type = "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
-            filename   = "harfex_combined.3mf"
-
-        else:
-            raise HTTPException(400, f"Bilinmeyen output değeri: {output!r}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"Export hatası: {e}")
-
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Wall-Faces":  str(stats.get("wall_faces", 0)),
-            "X-Face-Faces":  str(stats.get("face_faces", 0)),
-        },
-    )
+    threading.Thread(target=_run, daemon=True).start()
+    return {"jobId": job_id}
 
 
 # ── Back Cover STL ───────────────────────────────────────────────────────────
@@ -245,37 +236,36 @@ async def cover(
     cover_clearance:  float      = Form(0.05),
     cover_wt:         float      = Form(3.0),
 ):
-    """DXF yükle → Back Cover STL üret (main.py export_back_cover_stl ile özdeş)."""
+    """DXF → Back Cover background job, anında jobId döner."""
     suffix = Path(file.filename).suffix.lower()
     if suffix not in (".dxf", ".svg", ".eps"):
         raise HTTPException(400, f"Desteklenmeyen format: {suffix!r}")
     data = await file.read()
     if not data:
         raise HTTPException(400, "Boş dosya")
-    print(f"[COVER] ct={cover_ct} wh={cover_wh} cl={cover_clearance} wt={cover_wt}")
-    try:
-        proc = HarfexProcessor()
-        proc.load_dxf_bytes(data, suffix=suffix)
-        proc.set_params(
-            wall_mm=wall_mm, height_mm=height_mm,
-            wall_type=wall_type, wall_taper=wall_taper,
-            arc_sm=arc_sm, round_c=round_c, simplify=simplify,
-            mx=bool(mirror_x),
-            cover_ct=cover_ct, cover_wh=cover_wh,
-            cover_clearance=cover_clearance, cover_wt=cover_wt,
-        )
-        # build() → _last_base, _last_ig set edilir
-        proc.build()
-        content = proc.export_cover_stl_bytes()
-        print(f"[COVER] OK — {len(content)} bytes")
-    except Exception as e:
-        print(f"[COVER] ERROR: {e}")
-        raise HTTPException(500, f"Cover üretim hatası: {e}")
-    return Response(
-        content=content,
-        media_type="model/stl",
-        headers={"Content-Disposition": 'attachment; filename="harfex_cover.stl"'},
-    )
+
+    job_id = _new_job()
+
+    def _run():
+        try:
+            proc = HarfexProcessor()
+            proc.load_dxf_bytes(data, suffix=suffix)
+            proc.set_params(
+                wall_mm=wall_mm, height_mm=height_mm,
+                wall_type=wall_type, wall_taper=wall_taper,
+                arc_sm=arc_sm, round_c=round_c, simplify=simplify,
+                mx=bool(mirror_x),
+                cover_ct=cover_ct, cover_wh=cover_wh,
+                cover_clearance=cover_clearance, cover_wt=cover_wt,
+            )
+            proc.build()
+            content = proc.export_cover_stl_bytes()
+            _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
+        except Exception as e:
+            _set_job_error(job_id, f"Cover üretim hatası: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"jobId": job_id}
 
 
 # ── DXF kontur önizleme ───────────────────────────────────────────────────────

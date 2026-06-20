@@ -1,5 +1,19 @@
 __pycache__/
 *.pyc
-alpha182/build/
-alpha182/dist/
-alpha182/OrcaSlicer_Windows_V2.3.2_portable/
+*.pyo
+.env
+.venv
+venv/
+*.log
+.wrangler/
+node_modules/
+*.stl
+*.3mf
+test_*.dxf
+harfexRfoam.dxf
+api_log.txt
+R_region_compare.png
+foam_R_*.png
+*.zip
+17.6 Full/
+alpha182/

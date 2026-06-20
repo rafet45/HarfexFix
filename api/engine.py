@@ -728,8 +728,10 @@ class HarfexEngine:
         qs = max(4, int(self.arc_sm))
         h_span = float(z1-z0); n = max(24, int(round(h_span/0.6)))
         dz = h_span/n; slices = []
+        total_h = float(self.height_mm)
         for i in range(n):
-            t = (i+0.5)/n; o = self._interp_profile(t, profile)*max_lean
+            t = (z0 + (i+0.5)*dz) / total_h if total_h > 0 else (i+0.5)/n
+            o = self._interp_profile(t, profile)*max_lean
             outer = self._last_base.buffer(o, quad_segs=qs, join_style='mitre').buffer(0)
             inner = self._last_ig.buffer(o, quad_segs=qs, join_style='mitre').buffer(0)
             if outer is None or outer.is_empty: continue
@@ -856,7 +858,7 @@ class HarfexEngine:
     # 3MF export
     # ─────────────────────────────────────────────────────────────────────────
     def _split_wall_mesh(self, z0, z1):
-        """Duvar mesh'ini z0..z1 aralığına kır → (v, f) veya (None, None)."""
+        """Duvar mesh'ini z0..z1 aralığına kır → (v, f) veya (None, None). Slotlar dahil."""
         if self._last_wg is None: return None, None
         if z1 <= z0 + 0.01: return None, None
         if self.wall_type != 0:
@@ -865,9 +867,26 @@ class HarfexEngine:
             mf = self._geom_to_mf(self._last_wg, z0, z1)
         if mf is None or mf.is_empty(): return None, None
         m = mf.to_mesh()
-        cv = np.array(m.vert_properties, dtype=np.float32)
-        cf = np.array(m.tri_verts, dtype=np.int32)
-        cv2, cf2, _ = cleanup(cv, cf)
+        av = [tuple(p) for p in np.array(m.vert_properties, dtype=np.float32)]
+        af = [tuple(t) for t in np.array(m.tri_verts, dtype=np.int32)]
+        off = len(av)
+        def ap(v, f):
+            nonlocal off
+            if not v or not f: return
+            av.extend(v); af.extend([(a+off,b+off,c+off) for a,b,c in f]); off += len(v)
+        ig = self._last_ig
+        if ig is not None and not ig.is_empty:
+            ft = self.face_thickness if self.face_mode in (1,2) and self.face_thickness > 0 else 0.0
+            if self.bot_tab and self.bot_proj > 0.01:
+                tz0, tz1 = self._tab_z_range('bot', ft=ft)
+                if tz0 >= z0 - 0.01 and tz1 <= z1 + 0.01:
+                    ap(*self.tab_mesh(self._ig_at_z((tz0+tz1)/2.0), self.bot_proj, tz0, tz1, circular=True))
+            if self.top_tab and self.top_proj > 0.01:
+                tz0, tz1 = self._tab_z_range('top', ft=ft)
+                if tz0 >= z0 - 0.01 and tz1 <= z1 + 0.01:
+                    ap(*self.tab_mesh(self._ig_at_z((tz0+tz1)/2.0), self.top_proj, tz0, tz1,
+                                     circular=True, profile=_UST_TIRNAK_PROFILE))
+        cv2, cf2, _ = cleanup(np.asarray(av, dtype=np.float32), np.asarray(af, dtype=np.int32))
         return cv2, cf2
 
     def export_3mf_bytes(self, include_face=True, include_cover=False,
