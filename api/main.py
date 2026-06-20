@@ -10,6 +10,7 @@ Endpoints:
     GET  /api/health         → sunucu durumu
 """
 
+import gc
 import os
 import sys
 import uuid
@@ -31,6 +32,7 @@ from engine import HarfexEngine as HarfexProcessor
 # ── Job queue ─────────────────────────────────────────────────────────────────
 _jobs: Dict[str, Dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
+_proc_sem = threading.Semaphore(1)  # aynı anda max 1 ağır işlem
 
 def _new_job() -> str:
     job_id = uuid.uuid4().hex
@@ -152,68 +154,73 @@ async def process_endpoint(
 
     # Tüm parametreleri capture et ve thread'de çalıştır
     def _run():
-        try:
-            proc = HarfexProcessor()
+        with _proc_sem:
+            proc = None
             try:
-                proc.load_dxf_bytes(data, suffix=suffix)
+                proc = HarfexProcessor()
+                try:
+                    proc.load_dxf_bytes(data, suffix=suffix)
+                except Exception as e:
+                    _set_job_error(job_id, f"DXF okunamadı: {e}"); return
+
+                proc.set_params(
+                    wall_mm=wall_mm, height_mm=height_mm,
+                    wall_type=wall_type, wall_taper=wall_taper,
+                    face_mode=face_mode, face_thickness=face_thickness,
+                    face_fill=face_fill, face_fill_cell=face_fill_cell,
+                    face_fill_wall=face_fill_wall,
+                    face_fill_solid_pos=face_fill_solid_pos,
+                    face_fill_border=face_fill_border,
+                    arc_sm=arc_sm, round_c=round_c, simplify=simplify,
+                    cover_ct=cover_ct, cover_wh=cover_wh,
+                    cover_clearance=cover_clearance, cover_wt=cover_wt,
+                    plexiglas_offset=plexiglas_offset, foam_offset=foam_offset,
+                    mx=bool(mirror_x), my=bool(mirror_y),
+                    top_tab=top_tab, bot_tab=bot_tab,
+                    top_proj=top_proj, bot_proj=bot_proj,
+                    top_tab_z=top_tab_z, bot_tab_z=bot_tab_z,
+                )
+
+                try:
+                    stats = proc.build()
+                except Exception as e:
+                    _set_job_error(job_id, f"3D üretim hatası: {e}"); return
+
+                print(f"[API] job={job_id} output={output!r}")
+                if output == "wall_preview":
+                    wall_b64 = base64.b64encode(proc.export_stl_bytes()).decode()
+                    face_b64 = None
+                    if face_mode != 0:
+                        try: face_b64 = base64.b64encode(proc.export_face_stl_bytes()).decode()
+                        except Exception: pass
+                    _set_job_done(job_id, {
+                        "type": "wall_preview",
+                        "wall": wall_b64, "face": face_b64,
+                        "wall_faces": stats.get("wall_faces", 0),
+                    })
+                elif output == "wall_stl":
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_wall.stl"})
+                elif output == "face_stl":
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_face_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_face.stl"})
+                elif output == "cover_stl":
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_cover_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
+                elif output == "plexiglas_dxf":
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_plexiglas_dxf_bytes(mode="kanal")).decode(),"media_type":"application/dxf","filename":"harfex_plexiglas.dxf"})
+                elif output == "foam_dxf":
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_foam_dxf_bytes()).decode(),"media_type":"application/dxf","filename":"harfex_foam.dxf"})
+                elif output == "wall_3mf":
+                    content = proc.export_3mf_bytes(include_face=False, band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_wall.3mf"})
+                elif output == "combined_3mf":
+                    content = proc.export_3mf_bytes(include_face=True, include_cover=bool(include_cover), band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
+                    _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_combined.3mf"})
+                else:
+                    _set_job_error(job_id, f"Bilinmeyen output: {output!r}")
             except Exception as e:
-                _set_job_error(job_id, f"DXF okunamadı: {e}"); return
-
-            proc.set_params(
-                wall_mm=wall_mm, height_mm=height_mm,
-                wall_type=wall_type, wall_taper=wall_taper,
-                face_mode=face_mode, face_thickness=face_thickness,
-                face_fill=face_fill, face_fill_cell=face_fill_cell,
-                face_fill_wall=face_fill_wall,
-                face_fill_solid_pos=face_fill_solid_pos,
-                face_fill_border=face_fill_border,
-                arc_sm=arc_sm, round_c=round_c, simplify=simplify,
-                cover_ct=cover_ct, cover_wh=cover_wh,
-                cover_clearance=cover_clearance, cover_wt=cover_wt,
-                plexiglas_offset=plexiglas_offset, foam_offset=foam_offset,
-                mx=bool(mirror_x), my=bool(mirror_y),
-                top_tab=top_tab, bot_tab=bot_tab,
-                top_proj=top_proj, bot_proj=bot_proj,
-                top_tab_z=top_tab_z, bot_tab_z=bot_tab_z,
-            )
-
-            try:
-                stats = proc.build()
-            except Exception as e:
-                _set_job_error(job_id, f"3D üretim hatası: {e}"); return
-
-            print(f"[API] job={job_id} output={output!r}")
-            if output == "wall_preview":
-                wall_b64 = base64.b64encode(proc.export_stl_bytes()).decode()
-                face_b64 = None
-                if face_mode != 0:
-                    try: face_b64 = base64.b64encode(proc.export_face_stl_bytes()).decode()
-                    except Exception: pass
-                _set_job_done(job_id, {
-                    "type": "wall_preview",
-                    "wall": wall_b64, "face": face_b64,
-                    "wall_faces": stats.get("wall_faces", 0),
-                })
-            elif output == "wall_stl":
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_wall.stl"})
-            elif output == "face_stl":
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_face_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_face.stl"})
-            elif output == "cover_stl":
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_cover_stl_bytes()).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
-            elif output == "plexiglas_dxf":
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_plexiglas_dxf_bytes(mode="kanal")).decode(),"media_type":"application/dxf","filename":"harfex_plexiglas.dxf"})
-            elif output == "foam_dxf":
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(proc.export_foam_dxf_bytes()).decode(),"media_type":"application/dxf","filename":"harfex_foam.dxf"})
-            elif output == "wall_3mf":
-                content = proc.export_3mf_bytes(include_face=False, band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_wall.3mf"})
-            elif output == "combined_3mf":
-                content = proc.export_3mf_bytes(include_face=True, include_cover=bool(include_cover), band_pos=band_pos if include_band else None, band_h=band_h if include_band else None)
-                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"application/vnd.ms-package.3dmanufacturing-3dmodel+xml","filename":"harfex_combined.3mf"})
-            else:
-                _set_job_error(job_id, f"Bilinmeyen output: {output!r}")
-        except Exception as e:
-            _set_job_error(job_id, f"Beklenmeyen hata: {e}")
+                _set_job_error(job_id, f"Beklenmeyen hata: {e}")
+            finally:
+                del proc
+                gc.collect()
 
     threading.Thread(target=_run, daemon=True).start()
     return {"jobId": job_id}
@@ -247,22 +254,27 @@ async def cover(
     job_id = _new_job()
 
     def _run():
-        try:
-            proc = HarfexProcessor()
-            proc.load_dxf_bytes(data, suffix=suffix)
-            proc.set_params(
-                wall_mm=wall_mm, height_mm=height_mm,
-                wall_type=wall_type, wall_taper=wall_taper,
-                arc_sm=arc_sm, round_c=round_c, simplify=simplify,
-                mx=bool(mirror_x),
-                cover_ct=cover_ct, cover_wh=cover_wh,
-                cover_clearance=cover_clearance, cover_wt=cover_wt,
-            )
-            proc.build()
-            content = proc.export_cover_stl_bytes()
-            _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
-        except Exception as e:
-            _set_job_error(job_id, f"Cover üretim hatası: {e}")
+        with _proc_sem:
+            proc = None
+            try:
+                proc = HarfexProcessor()
+                proc.load_dxf_bytes(data, suffix=suffix)
+                proc.set_params(
+                    wall_mm=wall_mm, height_mm=height_mm,
+                    wall_type=wall_type, wall_taper=wall_taper,
+                    arc_sm=arc_sm, round_c=round_c, simplify=simplify,
+                    mx=bool(mirror_x),
+                    cover_ct=cover_ct, cover_wh=cover_wh,
+                    cover_clearance=cover_clearance, cover_wt=cover_wt,
+                )
+                proc.build()
+                content = proc.export_cover_stl_bytes()
+                _set_job_done(job_id, {"type":"binary","content":base64.b64encode(content).decode(),"media_type":"model/stl","filename":"harfex_cover.stl"})
+            except Exception as e:
+                _set_job_error(job_id, f"Cover üretim hatası: {e}")
+            finally:
+                del proc
+                gc.collect()
 
     threading.Thread(target=_run, daemon=True).start()
     return {"jobId": job_id}
