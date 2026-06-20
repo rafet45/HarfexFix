@@ -23,6 +23,7 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # engine modülünü bul
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -65,11 +66,16 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # production'da domain kısıtla
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Statik dosyaları serve et (web_extracted klasörü)
+_web_dir = Path(__file__).resolve().parent.parent / "web_extracted"
+if _web_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_web_dir), html=True), name="static")
 
 
 # ── Job durum sorgusu ─────────────────────────────────────────────────────────
