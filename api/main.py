@@ -72,10 +72,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Statik dosyaları serve et (web_extracted klasörü)
 _web_dir = Path(__file__).resolve().parent.parent / "web_extracted"
-if _web_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_web_dir), html=True), name="static")
 
 
 # ── Job durum sorgusu ─────────────────────────────────────────────────────────
@@ -331,3 +328,7 @@ def schema():
             "plexiglas_offset": 0.0,
         },
     }
+
+# Statik dosyalar — tüm API route'larından SONRA mount edilmeli
+if _web_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_web_dir), html=True), name="static")
